@@ -1,0 +1,130 @@
+{
+ "frames": {
+  "rally_flag_wave_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.25,
+    "y": 0.9
+   }
+  },
+  "rally_flag_wave_1": {
+   "frame": {
+    "x": 16,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.25,
+    "y": 0.9
+   }
+  },
+  "rally_flag_wave_2": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.25,
+    "y": 0.9
+   }
+  },
+  "rally_flag_wave_3": {
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.25,
+    "y": 0.9
+   }
+  }
+ },
+ "animations": {
+  "wave": {
+   "row": 0,
+   "frames": 4,
+   "fps": 8,
+   "loop": true,
+   "frameNames": [
+    "rally_flag_wave_0",
+    "rally_flag_wave_1",
+    "rally_flag_wave_2",
+    "rally_flag_wave_3"
+   ]
+  }
+ },
+ "meta": {
+  "image": "rally_flag.png",
+  "size": {
+   "w": 64,
+   "h": 20
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 16,
+  "frameHeight": 20,
+  "anchor": {
+   "x": 4,
+   "y": 18
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

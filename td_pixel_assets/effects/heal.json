@@ -1,0 +1,180 @@
+{
+ "frames": {
+  "heal_play_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8125
+   }
+  },
+  "heal_play_1": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8125
+   }
+  },
+  "heal_play_2": {
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8125
+   }
+  },
+  "heal_play_3": {
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8125
+   }
+  },
+  "heal_play_4": {
+   "frame": {
+    "x": 128,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8125
+   }
+  },
+  "heal_play_5": {
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8125
+   }
+  }
+ },
+ "animations": {
+  "play": {
+   "row": 0,
+   "frames": 6,
+   "fps": 10,
+   "loop": false,
+   "frameNames": [
+    "heal_play_0",
+    "heal_play_1",
+    "heal_play_2",
+    "heal_play_3",
+    "heal_play_4",
+    "heal_play_5"
+   ]
+  }
+ },
+ "meta": {
+  "image": "heal.png",
+  "size": {
+   "w": 192,
+   "h": 32
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 32,
+  "frameHeight": 32,
+  "anchor": {
+   "x": 16,
+   "y": 26
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

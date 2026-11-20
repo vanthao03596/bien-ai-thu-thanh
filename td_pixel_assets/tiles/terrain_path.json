@@ -1,0 +1,178 @@
+{
+ "tileSize": 32,
+ "columns": 8,
+ "tiles": {
+  "grass_0": {
+   "x": 0,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 0,
+   "row": 0
+  },
+  "grass_1": {
+   "x": 32,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 1,
+   "row": 0
+  },
+  "grass_2": {
+   "x": 64,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 2,
+   "row": 0
+  },
+  "grass_flowers": {
+   "x": 96,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 3,
+   "row": 0
+  },
+  "grass_tufts": {
+   "x": 128,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 4,
+   "row": 0
+  },
+  "dirt_0": {
+   "x": 160,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 5,
+   "row": 0
+  },
+  "dirt_1": {
+   "x": 192,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 6,
+   "row": 0
+  },
+  "dirt_2": {
+   "x": 224,
+   "y": 0,
+   "w": 32,
+   "h": 32,
+   "col": 7,
+   "row": 0
+  },
+  "path_TL": {
+   "x": 0,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 0,
+   "row": 1
+  },
+  "path_T": {
+   "x": 32,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 1,
+   "row": 1
+  },
+  "path_TR": {
+   "x": 64,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 2,
+   "row": 1
+  },
+  "path_L": {
+   "x": 96,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 3,
+   "row": 1
+  },
+  "path_C": {
+   "x": 128,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 4,
+   "row": 1
+  },
+  "path_R": {
+   "x": 160,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 5,
+   "row": 1
+  },
+  "path_BL": {
+   "x": 192,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 6,
+   "row": 1
+  },
+  "path_B": {
+   "x": 224,
+   "y": 32,
+   "w": 32,
+   "h": 32,
+   "col": 7,
+   "row": 1
+  },
+  "path_BR": {
+   "x": 0,
+   "y": 64,
+   "w": 32,
+   "h": 32,
+   "col": 0,
+   "row": 2
+  },
+  "path_iTL": {
+   "x": 32,
+   "y": 64,
+   "w": 32,
+   "h": 32,
+   "col": 1,
+   "row": 2
+  },
+  "path_iTR": {
+   "x": 64,
+   "y": 64,
+   "w": 32,
+   "h": 32,
+   "col": 2,
+   "row": 2
+  },
+  "path_iBL": {
+   "x": 96,
+   "y": 64,
+   "w": 32,
+   "h": 32,
+   "col": 3,
+   "row": 2
+  },
+  "path_iBR": {
+   "x": 128,
+   "y": 64,
+   "w": 32,
+   "h": 32,
+   "col": 4,
+   "row": 2
+  }
+ },
+ "autotile": {
+  "layout": "TL T TR / L C R / BL B BR = outer edges of the region; iTL..iBR = inner (concave) corners, named by the corner where grass remains",
+  "seamless": "all edge tiles share the same periodic border so any combination tiles cleanly"
+ }
+}

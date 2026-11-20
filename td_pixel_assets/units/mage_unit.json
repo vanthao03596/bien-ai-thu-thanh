@@ -1,0 +1,289 @@
+{
+ "frames": {
+  "mage_unit_idle_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_idle_1": {
+   "frame": {
+    "x": 16,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_idle_2": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_idle_3": {
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_cast_0": {
+   "frame": {
+    "x": 0,
+    "y": 20,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_cast_1": {
+   "frame": {
+    "x": 16,
+    "y": 20,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_cast_2": {
+   "frame": {
+    "x": 32,
+    "y": 20,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_cast_3": {
+   "frame": {
+    "x": 48,
+    "y": 20,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_cast_4": {
+   "frame": {
+    "x": 64,
+    "y": 20,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  },
+  "mage_unit_cast_5": {
+   "frame": {
+    "x": 80,
+    "y": 20,
+    "w": 16,
+    "h": 20
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 20
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 20
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9
+   }
+  }
+ },
+ "animations": {
+  "idle": {
+   "row": 0,
+   "frames": 4,
+   "fps": 4,
+   "loop": true,
+   "frameNames": [
+    "mage_unit_idle_0",
+    "mage_unit_idle_1",
+    "mage_unit_idle_2",
+    "mage_unit_idle_3"
+   ]
+  },
+  "cast": {
+   "row": 1,
+   "frames": 6,
+   "fps": 12,
+   "loop": false,
+   "frameNames": [
+    "mage_unit_cast_0",
+    "mage_unit_cast_1",
+    "mage_unit_cast_2",
+    "mage_unit_cast_3",
+    "mage_unit_cast_4",
+    "mage_unit_cast_5"
+   ],
+   "releaseFrame": 3
+  }
+ },
+ "meta": {
+  "image": "mage_unit.png",
+  "size": {
+   "w": 96,
+   "h": 40
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 16,
+  "frameHeight": 20,
+  "anchor": {
+   "x": 8,
+   "y": 18
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

@@ -1,0 +1,130 @@
+{
+ "frames": {
+  "tall_grass_sway_loop_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 16
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.875
+   }
+  },
+  "tall_grass_sway_loop_1": {
+   "frame": {
+    "x": 16,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 16
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.875
+   }
+  },
+  "tall_grass_sway_loop_2": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 16
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.875
+   }
+  },
+  "tall_grass_sway_loop_3": {
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 16
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 16
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.875
+   }
+  }
+ },
+ "animations": {
+  "loop": {
+   "row": 0,
+   "frames": 4,
+   "fps": 4,
+   "loop": true,
+   "frameNames": [
+    "tall_grass_sway_loop_0",
+    "tall_grass_sway_loop_1",
+    "tall_grass_sway_loop_2",
+    "tall_grass_sway_loop_3"
+   ]
+  }
+ },
+ "meta": {
+  "image": "tall_grass_sway.png",
+  "size": {
+   "w": 64,
+   "h": 16
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 16,
+  "frameHeight": 16,
+  "anchor": {
+   "x": 8,
+   "y": 14
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

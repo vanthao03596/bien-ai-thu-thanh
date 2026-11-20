@@ -1,0 +1,230 @@
+{
+ "frames": {
+  "hero_respawn_play_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_1": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_2": {
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_3": {
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_4": {
+   "frame": {
+    "x": 128,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_5": {
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_6": {
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  },
+  "hero_respawn_play_7": {
+   "frame": {
+    "x": 224,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 48
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9167
+   }
+  }
+ },
+ "animations": {
+  "play": {
+   "row": 0,
+   "frames": 8,
+   "fps": 12,
+   "loop": false,
+   "frameNames": [
+    "hero_respawn_play_0",
+    "hero_respawn_play_1",
+    "hero_respawn_play_2",
+    "hero_respawn_play_3",
+    "hero_respawn_play_4",
+    "hero_respawn_play_5",
+    "hero_respawn_play_6",
+    "hero_respawn_play_7"
+   ]
+  }
+ },
+ "meta": {
+  "image": "hero_respawn.png",
+  "size": {
+   "w": 256,
+   "h": 48
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 32,
+  "frameHeight": 48,
+  "anchor": {
+   "x": 16,
+   "y": 44
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

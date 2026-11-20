@@ -1,0 +1,130 @@
+{
+ "frames": {
+  "wave_call_button_pulse_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "wave_call_button_pulse_1": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "wave_call_button_pulse_2": {
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  },
+  "wave_call_button_pulse_3": {
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 32,
+    "h": 32
+   },
+   "sourceSize": {
+    "w": 32,
+    "h": 32
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  }
+ },
+ "animations": {
+  "pulse": {
+   "row": 0,
+   "frames": 4,
+   "fps": 6,
+   "loop": true,
+   "frameNames": [
+    "wave_call_button_pulse_0",
+    "wave_call_button_pulse_1",
+    "wave_call_button_pulse_2",
+    "wave_call_button_pulse_3"
+   ]
+  }
+ },
+ "meta": {
+  "image": "wave_call_button.png",
+  "size": {
+   "w": 128,
+   "h": 32
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 32,
+  "frameHeight": 32,
+  "anchor": {
+   "x": 16,
+   "y": 16
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

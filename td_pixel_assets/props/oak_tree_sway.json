@@ -1,0 +1,180 @@
+{
+ "frames": {
+  "oak_tree_sway_loop_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "oak_tree_sway_loop_1": {
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "oak_tree_sway_loop_2": {
+   "frame": {
+    "x": 96,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "oak_tree_sway_loop_3": {
+   "frame": {
+    "x": 144,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "oak_tree_sway_loop_4": {
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "oak_tree_sway_loop_5": {
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 48,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 48,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  }
+ },
+ "animations": {
+  "loop": {
+   "row": 0,
+   "frames": 6,
+   "fps": 4,
+   "loop": true,
+   "frameNames": [
+    "oak_tree_sway_loop_0",
+    "oak_tree_sway_loop_1",
+    "oak_tree_sway_loop_2",
+    "oak_tree_sway_loop_3",
+    "oak_tree_sway_loop_4",
+    "oak_tree_sway_loop_5"
+   ]
+  }
+ },
+ "meta": {
+  "image": "oak_tree_sway.png",
+  "size": {
+   "w": 288,
+   "h": 64
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 48,
+  "frameHeight": 64,
+  "anchor": {
+   "x": 24,
+   "y": 58
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

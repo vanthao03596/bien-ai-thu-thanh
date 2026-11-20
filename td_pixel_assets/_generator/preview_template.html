@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TD Pixel Pack — xem trước animation</title>
+<style>
+:root{--bg:#15131b;--panel:#1f1c27;--panel2:#262232;--ink:#efe8d8;--mute:#a49db3;--gold:#e3b02a;--line:#322d40}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+header{padding:22px 24px 10px;max-width:1400px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:.2px}
+h1 span{color:var(--gold)}
+header p{margin:0;color:var(--mute);max-width:860px}
+nav{position:sticky;top:0;z-index:5;background:rgba(21,19,27,.96);border-bottom:1px solid var(--line)}
+nav .in{max-width:1400px;margin:0 auto;padding:8px 24px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+nav button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer}
+nav button.on{background:var(--gold);color:#1d1322;border-color:var(--gold);font-weight:600}
+nav .opts{margin-left:auto;display:flex;gap:10px;align-items:center;color:var(--mute);font-size:13px}
+nav select,nav label{font:inherit;color:var(--ink)}
+nav select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+main{max-width:1400px;margin:0 auto;padding:16px 24px 60px}
+section{display:none}section.on{display:block}
+h2{font-size:16px;margin:18px 0 10px;color:var(--gold)}
+.note{color:var(--mute);font-size:13px;margin:-4px 0 12px;max-width:900px}
+.grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card h3{margin:0 0 2px;font-size:14px}
+.card .meta{color:var(--mute);font-size:12px;margin-bottom:8px}
+.anims{display:flex;flex-wrap:wrap;gap:10px}
+.anim{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--mute)}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;border-radius:4px}
+.sprites{display:flex;flex-wrap:wrap;gap:8px}
+.sp{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--mute);max-width:120px;text-align:center;word-break:break-all}
+#demoWrap{background:#0e0d12;border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto}
+#demo{margin:0 auto}
+.legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--mute);font-size:13px;margin-top:8px}
+.legend b{color:var(--ink)}
+</style>
+</head>
+<body>
+<header>
+<h1>Bộ asset <span>Tower Defense</span> pixel art — xem trước</h1>
+<p>Mọi sprite trong bộ đều vẽ ở kích thước gốc (1×) và đang được phóng to bằng nearest-neighbor. Bấm từng tab để xem animation. Tab “Màn demo” ghép các asset thành một màn chơi thử: quái đi theo đường, tháp bắn, lính chặn đường.</p>
+</header>
+<nav><div class="in" id="tabs"></div></nav>
+<main id="main"></main>
+<script>
+const DATA = __DATA__;
+const IMG = {};
+const S = {};
+for (const e of DATA.manifest) S[e.name] = e;
+const BGS = {grass:'#4f8f33', dark:'#2a2633', checker:null, sky:'#6aa8c8'};
+let bgMode = 'grass', flipSide = false;
+
+function loadAll(){
+  const pngs = new Set(DATA.manifest.map(e=>e.png));
+  for (const t of Object.values(DATA.tiles)) pngs.add(t.png);
+  return Promise.all([...pngs].map(p=>new Promise(res=>{const i=new Image();i.onload=()=>{IMG[p]=i;res()};i.onerror=()=>{console.warn('miss',p);res()};i.src=p;})));
+}
+function anim(e,name){return e.anims.find(a=>a.name===name)}
+function frameIdx(a,t){let f=Math.floor(t*a.fps);return a.loop?f%a.frames:Math.min(f,a.frames-1)}
+function draw(ctx,name,an,t,x,y,flip=false,alpha=1,fixedFrame=null){
+  const e=S[name];const a=anim(e,an);if(!a)return;
+  const f=fixedFrame!==null?fixedFrame:frameIdx(a,t);
+  const img=IMG[e.png];if(!img)return;
+  ctx.save();ctx.globalAlpha=alpha;
+  x=Math.round(x);y=Math.round(y);
+  if(flip){ctx.translate(x,0);ctx.scale(-1,1);ctx.drawImage(img,f*e.fw,a.row*e.fh,e.fw,e.fh,-e.anchor[0],y-e.anchor[1],e.fw,e.fh);}
+  else ctx.drawImage(img,f*e.fw,a.row*e.fh,e.fw,e.fh,x-e.anchor[0],y-e.anchor[1],e.fw,e.fh);
+  ctx.restore();
+}
+function drawAtlas(ctx,atlas,frame,x,y,px=.5,py=.92){
+  const e=S[atlas];const fr=e.atlas[frame];if(!fr)return;
+  ctx.drawImage(IMG[e.png],fr.x,fr.y,fr.w,fr.h,Math.round(x-fr.w*px),Math.round(y-fr.h*py),fr.w,fr.h);
+}
+function fillBg(ctx,w,h){
+  if(BGS[bgMode]){ctx.fillStyle=BGS[bgMode];ctx.fillRect(0,0,w,h);return}
+  for(let y=0;y<h;y+=8)for(let x=0;x<w;x+=8){ctx.fillStyle=((x+y)/8)%2?'#3a3646':'#302c3b';ctx.fillRect(x,y,8,8)}
+}
+
+/* -------------------------------------------------------------- tabs */
+const TABS=[['demo','Màn demo'],['enemies','Quái'],['heroes','Hero & lính'],['towers','Tháp'],['fx','Đạn & hiệu ứng'],['tiles','Tile & trang trí'],['ui','UI']];
+const tabsEl=document.getElementById('tabs'),main=document.getElementById('main');
+const sections={};
+for(const [id,label] of TABS){
+  const b=document.createElement('button');b.textContent=label;b.dataset.id=id;tabsEl.appendChild(b);
+  const s=document.createElement('section');s.id='s-'+id;main.appendChild(s);sections[id]=s;
+  b.onclick=()=>show(id);
+}
+const opts=document.createElement('div');opts.className='opts';
+opts.innerHTML='<label>Nền <select id="bgSel"><option value="grass">Cỏ</option><option value="dark">Tối</option><option value="checker">Ô kẻ</option><option value="sky">Trời</option></select></label><label><input type="checkbox" id="flipChk"> Lật trái (side)</label>';
+tabsEl.appendChild(opts);
+document.getElementById('bgSel').onchange=e=>bgMode=e.target.value;
+document.getElementById('flipChk').onchange=e=>flipSide=e.target.checked;
+function show(id){
+  for(const b of tabsEl.querySelectorAll('button'))b.classList.toggle('on',b.dataset.id===id);
+  for(const k in sections)sections[k].classList.toggle('on',k===id);
+  try{history.replaceState(null,'','#'+id)}catch(e){}
+  if(id==='demo'&&window.fitDemo)fitDemo();
+}
+
+/* ----------------------------------------------------------- gallery */
+const players=[];
+function scaleFor(e){const m=Math.max(e.fw,e.fh);return m<=20?4:m<=32?3:2}
+function sheetCard(e,parent,extra){
+  const c=document.createElement('div');c.className='card';
+  const sc=scaleFor(e);
+  c.innerHTML=`<h3>${e.name}</h3><div class="meta">${e.png} · khung ${e.fw}×${e.fh} · anchor (${e.anchor[0]}, ${e.anchor[1]})${extra||''}</div>`;
+  const wrap=document.createElement('div');wrap.className='anims';c.appendChild(wrap);
+  for(const a of e.anims){
+    const d=document.createElement('div');d.className='anim';
+    const cv=document.createElement('canvas');cv.width=e.fw*sc;cv.height=e.fh*sc;
+    d.appendChild(cv);const l=document.createElement('div');l.textContent=`${a.name} · ${a.frames}f · ${a.fps}fps${a.loop?'':' · 1 lần'}`;d.appendChild(l);
+    wrap.appendChild(d);
+    players.push({cv,ctx:cv.getContext('2d'),e,a,sc,t0:Math.random()*2,el:c});
+  }
+  parent.appendChild(c);return c;
+}
+function heading(sec,txt,note){const h=document.createElement('h2');h.textContent=txt;sec.appendChild(h);if(note){const p=document.createElement('div');p.className='note';p.textContent=note;sec.appendChild(p)}const g=document.createElement('div');g.className='grid';sec.appendChild(g);return g}
+
+function buildGallery(){
+  const E=sections.enemies;
+  let g=heading(E,'Quái thường','Mỗi quái có idle, walk_side (lật X để đi sang trái), walk_down, walk_up, attack (khung trúng đòn = hitFrame trong JSON) và death. Shaman dùng hàng attack làm animation niệm phép hồi máu.');
+  for(const n of ['goblin','orc','skeleton','shaman','dark_knight','wolf'])sheetCard(S[n],g,S[n].stats?` · gợi ý HP ${S[n].stats.hp}, tốc độ ${S[n].stats.speed}`:'');
+  g=heading(E,'Quái bay, quái lớn và boss');
+  for(const n of ['bat','ogre','demon_boss'])sheetCard(S[n],g,S[n].stats?` · gợi ý HP ${S[n].stats.hp}`:'');
+  const H=sections.heroes;
+  g=heading(H,'Hero','Hero Paladin có thêm animation special (giơ kiếm, vòng sáng).');sheetCard(S.hero_paladin,g);
+  g=heading(H,'Lính & quân trên tháp','Lính doanh trại dùng chung khung với quái. Cung thủ và pháp sư là nửa thân trên, đặt lên tháp theo unitSlots trong JSON của tháp.');
+  for(const n of ['soldier','archer_unit','mage_unit'])sheetCard(S[n],g);
+  const T=sections.towers;
+  for(const [k,label,note] of [['archer','Tháp cung','Tháp chỉ có idle (cờ bay); hai cung thủ đứng ở unitSlots và tự bắn.'],['mage','Tháp phép','idle: cầu phép trôi; attack: tụ phép, nhả đạn ở releaseFrame. Pháp sư đứng trên đỉnh.'],['artillery','Tháp pháo','attack: giật nòng, chớp lửa, khói. Đạn bay ra từ projectileOrigin.'],['barracks','Doanh trại','door: cửa mở/đóng, lính xuất hiện ở spawnFrame.']]){
+    g=heading(T,label,note);
+    for(const lv of [1,2,3]){const n=(k==='barracks'?'barracks':k+'_tower')+'_l'+lv;const card=sheetCard(S[n],g);}
+  }
+  g=heading(T,'Ô xây tháp & đang xây');sheetCard(S.build_plot,g);sheetCard(S.construction,g);
+  const F=sections.fx;
+  g=heading(F,'Đạn','Mũi tên có sẵn 8 và 16 hướng (khung i = góc i×45° hoặc i×22.5°, 0 = sang phải, theo chiều kim đồng hồ).');
+  for(const n of ['arrow','magic_bolt','bomb','fireball','heal_orb'])sheetCard(S[n],g);
+  g=heading(F,'Hiệu ứng');
+  for(const n of ['explosion','magic_hit','hit_spark','smoke_puff','dust','coin_spin','upgrade_sparkle','heal','flame','portal','soul','hero_respawn','slow_rune','shadow_small','shadow_medium','shadow_large'])sheetCard(S[n],g);
+  const TI=sections.tiles;
+  g=heading(TI,'Tile địa hình 32×32','Bộ autotile 13 ô cho đường đất và nước: TL T TR / L C R / BL B BR là mép ngoài, iTL..iBR là góc lõm. Mép ô dùng chung một đường viền tuần hoàn nên ghép kiểu gì cũng liền. Nước có 4 khung chuyển động.');
+  for(const k of ['terrain_path','terrain_water']){
+    const t=DATA.tiles[k];const c=document.createElement('div');c.className='card';
+    c.innerHTML=`<h3>${k}</h3><div class="meta">${t.png} · ${Object.keys(t.tiles).length} ô</div>`;
+    const cv=document.createElement('canvas');const img=IMG[t.png];const sc=k==='terrain_water'?1:2;
+    cv.width=img.width*sc;cv.height=img.height*sc;const x=cv.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(img,0,0,cv.width,cv.height);c.appendChild(cv);g.appendChild(c);
+  }
+  // water anim demo
+  const wc=document.createElement('div');wc.className='card';wc.innerHTML='<h3>Nước động (ghép 3×3 + góc lõm)</h3><div class="meta">water_*_f0..f3 · 4 fps</div>';
+  const wcv=document.createElement('canvas');wcv.width=32*5*2;wcv.height=32*3*2;wc.appendChild(wcv);g.appendChild(wc);
+  waterDemo={ctx:wcv.getContext('2d')};
+  g=heading(TI,'Trang trí động');
+  for(const n of ['oak_tree_sway','pine_tree_sway','tall_grass_sway','campfire','kingdom_gate'])sheetCard(S[n],g);
+  g=heading(TI,'Trang trí tĩnh (atlas props_static)');atlasGrid(S.props_static,g,2);
+  const U=sections.ui;
+  g=heading(U,'Biểu tượng 16×16 (icons_16)');atlasGrid(S.icons_16,U.lastChild,3);
+  g=heading(U,'Nút (buttons)','Mỗi nút có 3 trạng thái normal / pressed / disabled.');atlasGrid(S.buttons,g,2);
+  g=heading(U,'HUD: menu xây tháp, panel 9-slice, thanh máu, vùng bắn, con trỏ');atlasGrid(S.hud,g,2);
+  g=heading(U,'UI động');sheetCard(S.wave_call_button,g);sheetCard(S.rally_flag,g);
+  g=heading(U,'Font số');const fc=document.createElement('div');fc.className='card';const fe=S.font_digits;fc.innerHTML=`<h3>font_digits</h3><div class="meta">${fe.font} · ô ${fe.gw}×${fe.gh}</div>`;const fcv=document.createElement('canvas');const fi=IMG[fe.png];fcv.width=fi.width*4;fcv.height=fi.height*4;const fx_=fcv.getContext('2d');fx_.imageSmoothingEnabled=false;fx_.fillStyle='#2a2633';fx_.fillRect(0,0,fcv.width,fcv.height);fx_.drawImage(fi,0,0,fcv.width,fcv.height);fc.appendChild(fcv);g.appendChild(fc);
+}
+let waterDemo=null;
+function atlasGrid(e,parent,sc){
+  const c=document.createElement('div');c.className='card';c.style.width='100%';
+  c.innerHTML=`<h3>${e.name}</h3><div class="meta">${e.png} · ${Object.keys(e.atlas).length} sprite · JSON dạng TexturePacker hash (Phaser/Pixi đọc trực tiếp)</div>`;
+  const w=document.createElement('div');w.className='sprites';c.appendChild(w);
+  for(const [n,fr] of Object.entries(e.atlas)){
+    const d=document.createElement('div');d.className='sp';const cv=document.createElement('canvas');
+    cv.width=fr.w*sc;cv.height=fr.h*sc;const x=cv.getContext('2d');x.imageSmoothingEnabled=false;
+    statics.push({ctx:x,cv,e,fr,sc});
+    d.appendChild(cv);const l=document.createElement('div');l.textContent=n;d.appendChild(l);w.appendChild(d);
+  }
+  parent.appendChild(c);
+}
+const statics=[];
+function paintStatics(){for(const s of statics){fillBg(s.ctx,s.cv.width,s.cv.height);s.ctx.drawImage(IMG[s.e.png],s.fr.x,s.fr.y,s.fr.w,s.fr.h,0,0,s.cv.width,s.cv.height)}}
+
+function tickGallery(t){
+  const active=document.querySelector('section.on');
+  for(const p of players){
+    if(!active||!active.contains(p.cv))continue;
+    const {ctx,e,a,sc}=p;ctx.imageSmoothingEnabled=false;fillBg(ctx,p.cv.width,p.cv.height);
+    let tt=t+p.t0;if(!a.loop){const dur=a.frames/a.fps+0.6;tt=tt%dur}
+    const f=frameIdx(a,tt);const img=IMG[e.png];if(!img)continue;
+    const flip=flipSide&&(a.name.includes('side')||e.cat==='enemies'&&['idle','attack','death'].includes(a.name)||e.cat==='heroes'||e.cat==='units');
+    ctx.save();if(flip){ctx.translate(p.cv.width,0);ctx.scale(-1,1)}
+    // towers: composite their units for context
+    ctx.drawImage(img,f*e.fw,a.row*e.fh,e.fw,e.fh,0,0,e.fw*sc,e.fh*sc);
+    if(e.unitSlots){const u=S[e.unit];const ua=e.unit==='mage_unit'?(a.name==='attack'?'cast':'idle'):'idle_side';const uan=anim(u,ua);const uf=frameIdx(uan,tt);
+      for(const s of e.unitSlots){ctx.drawImage(IMG[u.png],uf*u.fw,uan.row*u.fh,u.fw,u.fh,(s.x-u.anchor[0])*sc,(s.y-u.anchor[1])*sc,u.fw*sc,u.fh*sc)}}
+    ctx.restore();
+  }
+  if(waterDemo&&sections.tiles.classList.contains('on')){
+    const ctx=waterDemo.ctx,t2=DATA.tiles.terrain_water,img=IMG[t2.png];const fr=Math.floor(t*4)%4;ctx.imageSmoothingEnabled=false;
+    const lay=[['TL','T','TR','iTL','iTR'],['L','C','R','iBL','iBR'],['BL','B','BR','C','C']];
+    lay.forEach((row,r)=>row.forEach((k,c)=>{const m=t2.tiles[`water_${k}_f${fr}`];ctx.drawImage(img,m.x,m.y,32,32,c*64,r*64,64,64)}));
+  }
+}
+
+/* -------------------------------------------------------------- demo */
+const TS=32,COLS=20,ROWS=12,W=COLS*TS,H=ROWS*TS;
+const pathSet=new Set();
+function addR(c0,r0,c1,r1){for(let c=c0;c<=c1;c++)for(let r=r0;r<=r1;r++)pathSet.add(c+','+r)}
+addR(0,2,7,3);addR(6,2,7,8);addR(6,7,13,8);addR(12,3,13,8);addR(12,3,19,4);
+function isP(c,r){if(r<0||r>=ROWS)return false;c=Math.max(0,Math.min(COLS-1,c));return pathSet.has(c+','+r)}
+function kind(c,r){const n=isP(c,r-1),s=isP(c,r+1),w=isP(c-1,r),e=isP(c+1,r);
+  if(!n&&!w)return'TL';if(!n&&!e)return'TR';if(!s&&!w)return'BL';if(!s&&!e)return'BR';if(!n)return'T';if(!s)return'B';if(!w)return'L';if(!e)return'R';
+  if(!isP(c-1,r-1))return'iTL';if(!isP(c+1,r-1))return'iTR';if(!isP(c-1,r+1))return'iBL';if(!isP(c+1,r+1))return'iBR';return'C'}
+const WAY=[[-20,96],[224,96],[224,256],[416,256],[416,128],[596,128]];
+const SEGL=[];let PATHLEN=0;for(let i=1;i<WAY.length;i++){const l=Math.hypot(WAY[i][0]-WAY[i-1][0],WAY[i][1]-WAY[i-1][1]);SEGL.push(l);PATHLEN+=l}
+function posAt(d){for(let i=0;i<SEGL.length;i++){if(d<=SEGL[i]){const a=WAY[i],b=WAY[i+1],t=d/SEGL[i];return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,b[0]-a[0],b[1]-a[1]]}d-=SEGL[i]}const b=WAY[WAY.length-1];return[b[0],b[1],1,0]}
+let bg=null;
+function buildMap(){
+  bg=document.createElement('canvas');bg.width=W;bg.height=H;const x=bg.getContext('2d');const t=DATA.tiles.terrain_path,img=IMG[t.png];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    let n;if(pathSet.has(c+','+r))n='path_'+kind(c,r);else{const h=(c*73+r*151)%17;n=h===0?'grass_flowers':h===5?'grass_tufts':'grass_'+(h%3)}
+    const m=t.tiles[n];x.drawImage(img,m.x,m.y,32,32,c*32,r*32,32,32)}
+}
+const DECOR=[
+  ['props_static','tent',96,62],['props_static','barrel',124,58],['props_static','crate',138,60],['anim','campfire',60,186],
+  ['anim','oak_tree_sway',36,46],['anim','oak_tree_sway',300,48],['anim','pine_tree_sway',540,52],['anim','pine_tree_sway',620,300],
+  ['anim','oak_tree_sway',40,360],['anim','pine_tree_sway',112,380],['anim','oak_tree_sway',480,382],['anim','oak_tree_sway',620,380],
+  ['props_static','rock_large_mossy',190,358],['props_static','rock_medium',250,330],['props_static','bush_berries',140,300],['props_static','bush',600,226],
+  ['props_static','rock_small',470,50],['props_static','mushrooms',220,40],['props_static','flowers_a',470,300],['props_static','stump',260,190],
+  ['props_static','bones',100,150],['props_static','signpost',176,60],['anim','tall_grass_sway',20,330],['anim','tall_grass_sway',560,350],
+  ['props_static','fence_h',440,330],['props_static','well',580,82],['props_static','ruin_pillar_broken',360,82],['props_static','bush_b',236,138],
+];
+const TOWERS=[
+  {type:'archer',name:'archer_tower_l3',x:150,y:226,range:170,cd:0,rate:.55,flip:false,shotT:-9,which:0},
+  {type:'mage',name:'mage_tower_l3',x:320,y:205,range:150,cd:1,rate:1.5,shotT:-9},
+  {type:'artillery',name:'artillery_tower_l2',x:520,y:232,range:180,cd:2,rate:2.6,shotT:-9},
+  {type:'barracks',name:'barracks_l2',x:330,y:368,doorT:-9,cd:3},
+  {type:'plot',name:'build_plot',x:420,y:58},
+  {type:'archer',name:'archer_tower_l1',x:96,y:258,range:120,cd:.5,rate:1.2,shotT:-9,which:0},
+];
+const HP={goblin:60,wolf:70,orc:200,skeleton:150,bat:70,shaman:130,dark_knight:420,ogre:950,demon_boss:3200};
+const SPD={goblin:40,wolf:58,orc:26,skeleton:30,bat:42,shaman:28,dark_knight:22,ogre:17,demon_boss:13};
+const GOLD={goblin:3,wolf:5,orc:10,skeleton:8,bat:6,shaman:12,dark_knight:20,ogre:40,demon_boss:200};
+const SEQ=['goblin','goblin','wolf','orc','skeleton','bat','goblin','shaman','wolf','dark_knight','skeleton','bat','orc','ogre','goblin','wolf','bat','dark_knight','demon_boss','goblin','orc','skeleton'];
+let enemies=[],projs=[],fxs=[],soldiers=[],hero=null,seqI=0,spawnT=0,lives=20,gold=250,wave=1,last=0,T=0;
+function spawn(){const k=SEQ[seqI%SEQ.length];seqI++;if(seqI%SEQ.length===0)wave++;
+  enemies.push({k,d:0,hp:HP[k],max:HP[k],state:'walk',t:0,off:(Math.random()-.5)*14,castT:3+Math.random()*3});}
+function ePos(e){const p=posAt(e.d);const L=Math.hypot(p[2],p[3])||1;return[p[0]+(-p[3]/L)*e.off,p[1]+(p[2]/L)*e.off,p[2],p[3]]}
+function setupUnits(){
+  const rally=[[300,250],[324,262],[348,250]];
+  soldiers=rally.map((r,i)=>({x:r[0],y:r[1],hx:r[0],hy:r[1],t:Math.random(),atk:-9,cd:0,flip:false}));
+  hero={x:460,y:196,t:0,atk:-9,cd:0,flip:true,spec:-9};
+}
+function target(tw,range){let best=null,bd=-1;for(const e of enemies){if(e.state!=='walk'&&e.state!=='cast')continue;const p=ePos(e);const dx=p[0]-tw.x,dy=(p[1]-tw.y+20)*1.4;if(Math.hypot(dx,dy)<range&&e.d>bd){bd=e.d;best=e}}return best}
+function hurt(e,dmg){if(e.state==='dying'||e.state==='gone')return;e.hp-=dmg;e.flash=.08;if(e.hp<=0){e.state='dying';e.t=0;gold+=GOLD[e.k];const p=ePos(e);fxs.push({n:'coin_spin',a:'play',x:p[0],y:p[1]-18,t:0,rise:true,life:1.0})}}
+function update(dt){
+  T+=dt;spawnT-=dt;if(spawnT<=0){spawn();spawnT=1.0+Math.random()*.5}
+  for(const e of enemies){
+    e.t+=dt;if(e.flash)e.flash=Math.max(0,e.flash-dt);
+    if(e.state==='walk'){e.d+=SPD[e.k]*dt;if(e.k==='shaman'){e.castT-=dt;if(e.castT<=0){e.state='cast';e.t=0;e.castT=5}}
+      if(e.d>=PATHLEN){e.state='gone';lives=Math.max(0,lives-1)}}
+    else if(e.state==='cast'){if(e.t>.65){e.state='walk';const p=ePos(e);fxs.push({n:'heal',a:'play',x:p[0],y:p[1]+2,t:0});for(const o of enemies){if(o!==e&&o.state==='walk'&&Math.abs(o.d-e.d)<50)o.hp=Math.min(o.max,o.hp+15)}}}
+    else if(e.state==='dying'){if(e.t>1.0)e.state='gone'}
+  }
+  enemies=enemies.filter(e=>e.state!=='gone');
+  for(const tw of TOWERS){
+    if(!tw.range&&tw.type!=='barracks')continue;tw.cd-=dt;
+    if(tw.type==='barracks'){if(tw.cd<=0){tw.doorT=T;tw.cd=7}continue}
+    const e=target(tw,tw.range);if(!e||tw.cd>0)continue;tw.cd=tw.rate;tw.shotT=T;const p=ePos(e);
+    if(tw.type==='archer'){const s=S[tw.name].unitSlots[tw.which%2];tw.which++;tw.lastWhich=tw.which%2?0:1;
+      const sx=tw.x-32+s.x,sy=tw.y-57+s.y-8;tw.aimDx=p[0]-sx;tw.aimDy=p[1]-sy;
+      projs.push({kind:'arrow',x0:sx,y0:sy,e,t:0,dur:.42,dmg:9,delay:.18})}
+    else if(tw.type==='mage'){const s=S[tw.name].unitSlots[0];projs.push({kind:'magic',x:tw.x-32+s.x+4,y:tw.y-57+s.y-14,e,t:0,dmg:34,delay:.26,spd:230})}
+    else if(tw.type==='artillery'){const o=S[tw.name].projectileOrigin;const lead=SPD[e.k]*.95;const tp=posAt(Math.min(PATHLEN,e.d+lead));
+      projs.push({kind:'bomb',x0:tw.x-32+o[0],y0:tw.y-57+o[1],x1:tp[0],y1:tp[1],t:0,dur:.95,dmg:55,delay:.07})}
+  }
+  for(const pr of projs){
+    if(pr.delay>0){pr.delay-=dt;continue}pr.t+=dt;
+    if(pr.kind==='arrow'){const p=ePos(pr.e);const k=Math.min(1,pr.t/pr.dur);pr.cx=pr.x0+(p[0]-pr.x0)*k;pr.cy=pr.y0+(p[1]-12-pr.y0)*k-Math.sin(Math.PI*k)*22;
+      if(pr.px!==undefined){pr.ang=Math.atan2(pr.cy-pr.py,pr.cx-pr.px)}pr.px=pr.cx;pr.py=pr.cy;
+      if(k>=1){pr.done=true;hurt(pr.e,pr.dmg);fxs.push({n:'hit_spark',a:'play',x:pr.cx,y:pr.cy+8,t:0})}}
+    else if(pr.kind==='magic'){const p=ePos(pr.e);const tx=p[0],ty=p[1]-12;const dx=tx-pr.x,dy=ty-pr.y,L=Math.hypot(dx,dy);pr.ang=Math.atan2(dy,dx);
+      if(L<6||pr.e.state==='dying'){pr.done=true;hurt(pr.e,pr.dmg);fxs.push({n:'magic_hit',a:'play',x:tx,y:ty+16,t:0})}else{pr.x+=dx/L*pr.spd*dt;pr.y+=dy/L*pr.spd*dt}}
+    else if(pr.kind==='bomb'){const k=Math.min(1,pr.t/pr.dur);pr.cx=pr.x0+(pr.x1-pr.x0)*k;pr.cy=pr.y0+(pr.y1-pr.y0)*k-Math.sin(Math.PI*k)*70;
+      if(k>=1){pr.done=true;fxs.push({n:'explosion',a:'play',x:pr.x1,y:pr.y1+6,t:0});for(const e of enemies){if(e.k==='bat')continue;const p=ePos(e);if(Math.hypot(p[0]-pr.x1,(p[1]-pr.y1)*1.3)<38)hurt(e,pr.dmg)}}}
+  }
+  projs=projs.filter(p=>!p.done);
+  for(const s of soldiers.concat([hero])){s.t+=dt;s.cd-=dt;let tgt=null,bd=1e9;
+    for(const e of enemies){if(e.state==='dying'||e.k==='bat')continue;const p=ePos(e);const d=Math.hypot(p[0]-s.x,p[1]-s.y);if(d<(s===hero?46:30)&&d<bd){bd=d;tgt=[e,p]}}
+    if(tgt){s.flip=tgt[1][0]<s.x;if(s.cd<=0){s.atk=T;s.cd=.75;const ee=tgt[0];setTimeout(()=>hurt(ee,s===hero?26:9),220)}}
+    if(s===hero&&!tgt&&T-s.spec>8&&Math.random()<.004){s.spec=T}
+  }
+  for(const f of fxs){f.t+=dt;if(f.rise)f.y-=dt*18}
+  fxs=fxs.filter(f=>{const e=S[f.n],a=anim(e,f.a);return f.life?f.t<f.life:(a.loop?f.t<1.2:f.t<a.frames/a.fps)});
+}
+function walkAnim(dx,dy){if(Math.abs(dx)>=Math.abs(dy))return['walk_side',dx<0];return[dy>0?'walk_down':'walk_up',false]}
+function bar(ctx,x,y,ratio,boss){const h=S.hud.atlas;const fr=h.hp_frame,fl=ratio>.5?h.hp_fill_green:ratio>.25?h.hp_fill_yellow:h.hp_fill_red;const img=IMG[S.hud.png];
+  const X=Math.round(x-fr.w/2),Y=Math.round(y);ctx.drawImage(img,fr.x,fr.y,fr.w,fr.h,X,Y,fr.w,fr.h);const w=Math.max(1,Math.round((fr.w-2)*ratio));ctx.drawImage(img,fl.x,fl.y,w,fl.h,X+1,Y+1,w,fl.h)}
+function text(ctx,str,x,y){const f=S.font_digits,img=IMG[f.png];for(let i=0;i<str.length;i++){const k=f.font.indexOf(str[i]);if(k<0)continue;ctx.drawImage(img,k*f.gw,0,f.gw,f.gh,x+i*(f.gw-1),y,f.gw,f.gh)}}
+function render(ctx){
+  ctx.imageSmoothingEnabled=false;ctx.drawImage(bg,0,0);
+  draw(ctx,'portal','play',T,18,112);
+  const items=[];
+  for(const d of DECOR)items.push({y:d[3],f:()=>d[0]==='anim'?draw(ctx,d[1],'loop',T+d[2]*.01,d[2],d[3]):drawAtlas(ctx,d[0],d[1],d[2],d[3])});
+  items.push({y:150,f:()=>draw(ctx,'kingdom_gate','loop',T,600,150)});
+  for(const tw of TOWERS){
+    items.push({y:tw.y,f:()=>{
+      if(tw.type==='plot'){draw(ctx,'build_plot','hover',T,tw.x,tw.y);return}
+      let an='idle',tt=T;const e=S[tw.name];
+      if(tw.type==='mage'&&T-tw.shotT<.5){an='attack';tt=T-tw.shotT}
+      if(tw.type==='artillery'&&T-tw.shotT<.6){an='attack';tt=T-tw.shotT}
+      if(tw.type==='barracks'&&T-tw.doorT<.6){an='door';tt=T-tw.doorT}
+      draw(ctx,tw.name,an,tt,tw.x,tw.y);
+      if(e.unitSlots){e.unitSlots.forEach((s,i)=>{const ux=tw.x-32+s.x,uy=tw.y-57+s.y;
+        if(e.unit==='archer_unit'){let a='idle_side',fl=false,ut=T+i*.3;
+          if(T-tw.shotT<.45&&(tw.lastWhich===i)){const dx=tw.aimDx,dy=tw.aimDy;if(Math.abs(dy)>Math.abs(dx)*1.2){a=dy>0?'shoot_down':'shoot_up'}else{a='shoot_side';fl=dx<0}ut=T-tw.shotT}
+          else if(tw.aimDx!==undefined){fl=tw.aimDx<0}
+          draw(ctx,'archer_unit',a,ut,ux,uy,fl)}
+        else{const casting=T-tw.shotT<.5;draw(ctx,'mage_unit',casting?'cast':'idle',casting?T-tw.shotT:T,ux,uy,false)}})}
+    }})}
+  for(const e of enemies){const p=ePos(e);const sh=S[e.k];
+    items.push({y:p[1],f:()=>{
+      let an,fl=false,tt=e.t;
+      if(e.k==='bat'){draw(ctx,'shadow_small','default',0,p[0],p[1]+1);an=e.state==='dying'?'death':'fly';draw(ctx,'bat',an,e.state==='dying'?e.t:T+e.off,p[0],p[1]-6)}
+      else{
+        if(e.state==='dying')an='death',fl=p[2]<0;else if(e.state==='cast'){an='attack';fl=p[2]<0}else{[an,fl]=walkAnim(p[2],p[3]);tt=T+e.off}
+        const shName=sh.fw>=48?'shadow_large':sh.fw>32?'shadow_medium':'shadow_small';if(e.state!=='dying')draw(ctx,shName,'default',0,p[0],p[1]+1);
+        draw(ctx,e.k,an,tt,p[0],p[1],fl)}
+      if(e.flash&&e.state!=='dying'){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.5;draw(ctx,e.k,e.k==='bat'?'fly':'idle',0,p[0],p[1]-(e.k==='bat'?6:0));ctx.restore()}
+      if(e.state!=='dying'){const top=e.k==='demon_boss'?52:e.k==='ogre'?40:e.k==='bat'?28:24;bar(ctx,p[0],p[1]-top,e.hp/e.max)}
+    }})}
+  for(const s of soldiers){items.push({y:s.y,f:()=>{draw(ctx,'shadow_small','default',0,s.x,s.y+1);const at=T-s.atk<.5;draw(ctx,'soldier',at?'attack':'idle',at?T-s.atk:s.t,s.x,s.y,s.flip)}})}
+  items.push({y:hero.y,f:()=>{const h=hero;draw(ctx,'shadow_small','default',0,h.x,h.y+1);let a='idle',tt=h.t;if(T-h.spec<.8){a='special';tt=T-h.spec}else if(T-h.atk<.5){a='attack';tt=T-h.atk}draw(ctx,'hero_paladin',a,tt,h.x,h.y,h.flip)}});
+  items.push({y:268,f:()=>draw(ctx,'rally_flag','wave',T,326,276)});
+  items.sort((a,b)=>a.y-b.y);for(const it of items)it.f();
+  for(const pr of projs){if(pr.delay>0)continue;
+    if(pr.kind==='arrow'&&pr.ang!==undefined){let i=Math.round(((pr.ang*180/Math.PI)+360)%360/22.5)%16;draw(ctx,'arrow','fly_16dir',0,pr.cx,pr.cy,false,1,i)}
+    else if(pr.kind==='magic')draw(ctx,'magic_bolt','fly',T,pr.x,pr.y)
+    else if(pr.kind==='bomb'){draw(ctx,'shadow_small','default',0,pr.x0+(pr.x1-pr.x0)*Math.min(1,pr.t/pr.dur),pr.y0+(pr.y1-pr.y0)*Math.min(1,pr.t/pr.dur)+4);draw(ctx,'bomb','fly',T,pr.cx,pr.cy)}}
+  for(const f of fxs)draw(ctx,f.n,f.a,f.t,f.x,f.y);
+  // HUD
+  
+  ctx.fillStyle='rgba(20,14,24,.72)';ctx.fillRect(4,4,150,22);ctx.strokeStyle='#e3b02a';ctx.strokeRect(4.5,4.5,149,21);
+  drawAtlas(ctx,'icons_16','heart',16,23,.5,1);text(ctx,String(lives),26,10);
+  drawAtlas(ctx,'icons_16','coin',62,23,.5,1);text(ctx,String(gold),72,10);
+  drawAtlas(ctx,'icons_16','wave',112,23,.5,1);text(ctx,wave+'/9',122,10);
+  draw(ctx,'wave_call_button','pulse',T,40,150);
+}
+function startDemo(){
+  const sec=sections.demo;
+  sec.innerHTML='<h2>Màn demo ghép từ chính các asset trong bộ</h2><div class="note">Bản đồ 20×12 ô ghép từ autotile, quái lấy hướng đi để chọn walk_side / walk_down / walk_up, cung thủ đổi hướng bắn theo mục tiêu, đạn pháo bay vòng cung, lính và hero đánh khi quái tới gần, quái chết rơi vàng.</div><div id="demoWrap"><canvas id="demo" width="'+W+'" height="'+H+'"></canvas></div><div class="legend"><span><b>Tháp cung</b> L3 + L1 · 2 cung thủ/tháp</span><span><b>Tháp phép</b> L3</span><span><b>Tháp pháo</b> L2</span><span><b>Doanh trại</b> L2 + 3 lính ở cờ tập kết</span><span><b>Hero</b> Paladin</span><span><b>Ô xây</b> trống ở trên</span></div>';
+  const cv=document.getElementById('demo');const ctx=cv.getContext('2d');
+  function fit(){const w=document.getElementById('demoWrap').clientWidth-20;const k=w>0?Math.max(1,Math.floor(w/W*2)/2):2;cv.style.width=(W*k)+'px';cv.style.height=(H*k)+'px'}
+  window.fitDemo=fit;fit();addEventListener('resize',fit);
+  buildMap();setupUnits();
+  for(let i=0;i<240;i++)update(1/30);
+  demoCtx=ctx;
+}
+let demoCtx=null;
+function loop(ts){const t=ts/1000;const dt=Math.min(.05,last?t-last:0);last=t;
+  if(demoCtx&&sections.demo.classList.contains('on')){update(dt);render(demoCtx)}
+  tickGallery(t);if(Math.floor(t*2)!==Math.floor((t-dt)*2))paintStatics();requestAnimationFrame(loop)}
+loadAll().then(()=>{startDemo();buildGallery();paintStatics();const h=(location.hash||'').slice(1);show(TABS.some(t=>t[0]===h)?h:'demo');requestAnimationFrame(loop)});
+</script>
+</body>
+</html>

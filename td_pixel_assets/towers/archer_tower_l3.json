@@ -1,0 +1,141 @@
+{
+ "frames": {
+  "archer_tower_l3_idle_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8906
+   }
+  },
+  "archer_tower_l3_idle_1": {
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8906
+   }
+  },
+  "archer_tower_l3_idle_2": {
+   "frame": {
+    "x": 128,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8906
+   }
+  },
+  "archer_tower_l3_idle_3": {
+   "frame": {
+    "x": 192,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8906
+   }
+  }
+ },
+ "animations": {
+  "idle": {
+   "row": 0,
+   "frames": 4,
+   "fps": 6,
+   "loop": true,
+   "frameNames": [
+    "archer_tower_l3_idle_0",
+    "archer_tower_l3_idle_1",
+    "archer_tower_l3_idle_2",
+    "archer_tower_l3_idle_3"
+   ]
+  }
+ },
+ "meta": {
+  "image": "archer_tower_l3.png",
+  "size": {
+   "w": 256,
+   "h": 64
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "anchor": {
+   "x": 32,
+   "y": 57
+  },
+  "app": "td-pixel-pack generator",
+  "unitSlots": [
+   {
+    "x": 26,
+    "y": 18
+   },
+   {
+    "x": 38,
+    "y": 18
+   }
+  ],
+  "unit": "units/archer_unit.png"
+ }
+}

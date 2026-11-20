@@ -1,0 +1,163 @@
+{
+ "frames": {
+  "build_plot_idle_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8281
+   }
+  },
+  "build_plot_hover_0": {
+   "frame": {
+    "x": 0,
+    "y": 64,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8281
+   }
+  },
+  "build_plot_hover_1": {
+   "frame": {
+    "x": 64,
+    "y": 64,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8281
+   }
+  },
+  "build_plot_hover_2": {
+   "frame": {
+    "x": 128,
+    "y": 64,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8281
+   }
+  },
+  "build_plot_hover_3": {
+   "frame": {
+    "x": 192,
+    "y": 64,
+    "w": 64,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 64,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 64,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8281
+   }
+  }
+ },
+ "animations": {
+  "idle": {
+   "row": 0,
+   "frames": 1,
+   "fps": 1,
+   "loop": true,
+   "frameNames": [
+    "build_plot_idle_0"
+   ]
+  },
+  "hover": {
+   "row": 1,
+   "frames": 4,
+   "fps": 8,
+   "loop": true,
+   "frameNames": [
+    "build_plot_hover_0",
+    "build_plot_hover_1",
+    "build_plot_hover_2",
+    "build_plot_hover_3"
+   ]
+  }
+ },
+ "meta": {
+  "image": "build_plot.png",
+  "size": {
+   "w": 256,
+   "h": 128
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "anchor": {
+   "x": 32,
+   "y": 53
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

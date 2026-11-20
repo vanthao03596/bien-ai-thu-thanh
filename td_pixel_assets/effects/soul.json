@@ -1,0 +1,180 @@
+{
+ "frames": {
+  "soul_play_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 24
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8333
+   }
+  },
+  "soul_play_1": {
+   "frame": {
+    "x": 16,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 24
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8333
+   }
+  },
+  "soul_play_2": {
+   "frame": {
+    "x": 32,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 24
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8333
+   }
+  },
+  "soul_play_3": {
+   "frame": {
+    "x": 48,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 24
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8333
+   }
+  },
+  "soul_play_4": {
+   "frame": {
+    "x": 64,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 24
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8333
+   }
+  },
+  "soul_play_5": {
+   "frame": {
+    "x": 80,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 16,
+    "h": 24
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.8333
+   }
+  }
+ },
+ "animations": {
+  "play": {
+   "row": 0,
+   "frames": 6,
+   "fps": 10,
+   "loop": false,
+   "frameNames": [
+    "soul_play_0",
+    "soul_play_1",
+    "soul_play_2",
+    "soul_play_3",
+    "soul_play_4",
+    "soul_play_5"
+   ]
+  }
+ },
+ "meta": {
+  "image": "soul.png",
+  "size": {
+   "w": 96,
+   "h": 24
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 16,
+  "frameHeight": 24,
+  "anchor": {
+   "x": 8,
+   "y": 20
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

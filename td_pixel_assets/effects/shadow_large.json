@@ -1,0 +1,55 @@
+{
+ "frames": {
+  "shadow_large_default_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 40,
+    "h": 12
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 40,
+    "h": 12
+   },
+   "sourceSize": {
+    "w": 40,
+    "h": 12
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.5
+   }
+  }
+ },
+ "animations": {
+  "default": {
+   "row": 0,
+   "frames": 1,
+   "fps": 1,
+   "loop": false,
+   "frameNames": [
+    "shadow_large_default_0"
+   ]
+  }
+ },
+ "meta": {
+  "image": "shadow_large.png",
+  "size": {
+   "w": 40,
+   "h": 12
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 40,
+  "frameHeight": 12,
+  "anchor": {
+   "x": 20,
+   "y": 6
+  },
+  "app": "td-pixel-pack generator"
+ }
+}

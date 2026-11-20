@@ -1,0 +1,130 @@
+{
+ "frames": {
+  "kingdom_gate_loop_0": {
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "kingdom_gate_loop_1": {
+   "frame": {
+    "x": 80,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "kingdom_gate_loop_2": {
+   "frame": {
+    "x": 160,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  },
+  "kingdom_gate_loop_3": {
+   "frame": {
+    "x": 240,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 80,
+    "h": 64
+   },
+   "sourceSize": {
+    "w": 80,
+    "h": 64
+   },
+   "pivot": {
+    "x": 0.5,
+    "y": 0.9062
+   }
+  }
+ },
+ "animations": {
+  "loop": {
+   "row": 0,
+   "frames": 4,
+   "fps": 6,
+   "loop": true,
+   "frameNames": [
+    "kingdom_gate_loop_0",
+    "kingdom_gate_loop_1",
+    "kingdom_gate_loop_2",
+    "kingdom_gate_loop_3"
+   ]
+  }
+ },
+ "meta": {
+  "image": "kingdom_gate.png",
+  "size": {
+   "w": 320,
+   "h": 64
+  },
+  "format": "RGBA8888",
+  "scale": "1",
+  "frameWidth": 80,
+  "frameHeight": 64,
+  "anchor": {
+   "x": 40,
+   "y": 58
+  },
+  "app": "td-pixel-pack generator"
+ }
+}
