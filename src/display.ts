@@ -42,3 +42,8 @@ export function onPixelScale(scene: Phaser.Scene, layout: () => void): void {
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.scale.off(Phaser.Scale.Events.RESIZE, layout))
   layout()
 }
+
+/** The main pointer of this device is a finger, so there is no hover, right click or keyboard to rely on. */
+export function touchFirst(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
+}

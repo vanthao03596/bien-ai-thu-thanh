@@ -4,6 +4,7 @@ import '@fontsource/vt323/vietnamese-400.css'
 import Phaser from 'phaser'
 import { VIEW_H, VIEW_W } from './data/levels'
 import { watchPixelScale, windowPixelScale } from './display'
+import { watchOrientation } from './orientation'
 import { BattleScene } from './scenes/battle'
 import { BootScene } from './scenes/boot'
 import { HudScene } from './scenes/hud'
@@ -33,6 +34,7 @@ async function boot(): Promise<void> {
     scene: [BootScene, BattleScene, MenuScene, HudScene],
   })
   watchPixelScale(game)
+  watchOrientation(game)
   game.scale.on(Phaser.Scale.Events.RESIZE, () => refreshLabels(Math.round(game.scale.width / VIEW_W)))
   if (import.meta.env.DEV) (window as unknown as { __game?: Phaser.Game }).__game = game
 }

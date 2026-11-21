@@ -284,13 +284,23 @@ export class RectButton {
   }
 }
 
+/** set by the first pointer event of the page; before it nobody knows where the mouse is, or whether there is one */
+let pointerSeen = false
+
 /** The arrow cursor of the pack; it follows the mouse and turns gold over anything clickable. */
 export class Cursor {
   private readonly image: Phaser.GameObjects.Image
 
   constructor(private readonly scene: Phaser.Scene) {
-    this.image = sprite(scene, HUD, 'cursor_point', -100, -100).setDepth(10000)
+    this.image = sprite(scene, HUD, 'cursor_point', -100, -100).setDepth(10000).setVisible(false)
     scene.input.setDefaultCursor('none')
+    if (!pointerSeen) {
+      const seen = (): void => {
+        pointerSeen = true
+      }
+      scene.input.once(Phaser.Input.Events.POINTER_MOVE, seen)
+      scene.input.once(Phaser.Input.Events.POINTER_DOWN, seen)
+    }
   }
 
   /** Logical position of the pointer in this scene. */
@@ -300,7 +310,7 @@ export class Cursor {
 
   update(gold: boolean): void {
     const pointer = this.scene.input.activePointer
-    const visible = !pointer.wasTouch && this.scene.sys.game.input.isOver
+    const visible = pointerSeen && !pointer.wasTouch && this.scene.sys.game.input.isOver
     this.image.setVisible(visible)
     if (!visible) return
     const p = this.position(pointer)

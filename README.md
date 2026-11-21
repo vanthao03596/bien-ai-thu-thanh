@@ -13,7 +13,7 @@ npm run dev        # mở http://localhost:5173
 Các lệnh khác:
 
 ```
-npm test           # 103 bài test cho đường đi, cơ chế trận đấu, kỹ năng quái, nhánh tháp, phiên chơi, dữ liệu màn chơi và cân bằng
+npm test           # 114 bài test cho đường đi, cơ chế trận đấu, kỹ năng quái, nhánh tháp, phiên chơi, gợi ý, dữ liệu màn chơi và cân bằng
 npm run build      # kiểm tra kiểu rồi đóng gói vào dist/ (đặt lên host tĩnh nào cũng chạy)
 npm run preview    # chạy thử bản dist/
 ```
@@ -27,7 +27,9 @@ npm run preview    # chạy thử bản dist/
 - Hai phép ở góc dưới trái: Mưa lửa (`1`) và Viện binh (`2`).
 - `Space` tạm dừng, `F` tua nhanh x2, chuột phải hoặc `Esc` để hủy, `M` tắt tiếng.
 - Lăn chuột (hoặc phím `+` / `-`) để phóng to, thu nhỏ bản đồ. Khi đang phóng to, giữ chuột trái và kéo để di chuyển khung nhìn.
-- Trên màn hình cảm ứng: chạm lần đầu để xem thông tin, chạm lần nữa để xác nhận. Dùng hai ngón để phóng to, một ngón kéo để di chuyển.
+- Trên màn hình cảm ứng: chạm lần đầu để xem thông tin, chạm lần nữa để xác nhận (xây, nâng cấp, bán, gọi đợt quái). Dùng hai ngón để phóng to, một ngón kéo để di chuyển.
+- Điện thoại cầm dọc sẽ thấy lời nhắc xoay ngang, trận đấu tự tạm dừng. Trên Android nút "Xoay giúp tôi" bật toàn màn hình và khóa hướng ngang.
+- Người chơi mới được nhắc từng bước bằng một dòng gợi ý ở cuối màn hình (xây tháp, gọi quái, điều tướng, dùng phép, nâng cấp, điểm tập kết, rẽ nhánh, gọi sớm). Mỗi gợi ý chỉ hiện đến khi làm theo hoặc hết giờ, rồi không hiện lại.
 
 Bốn loại tháp, mỗi loại ba cấp:
 
@@ -67,7 +69,15 @@ Quái có kỹ năng riêng, mỗi loại cần một cách đối phó:
 | Tù trưởng Orc | Thúc quái xung quanh chạy nhanh hơn |
 | Chúa chằn, Quỷ vương | Boss: dậm đất hạ lính; Quỷ vương còn gọi dơi và khóa tháp |
 
-Giữ được từ 18/20 mạng trở lên là ba sao, từ 8 mạng là hai sao. Tiến độ lưu trong `localStorage`.
+Giữ được từ 18/20 mạng trở lên là ba sao, từ 8 mạng là hai sao. Thắng màn cuối sẽ hiện bảng tổng kết cả chiến dịch.
+Số sao và các gợi ý đã xem lưu trong `localStorage`; nút "Xóa tiến độ" ở màn chọn màn chơi xóa cả hai (bấm hai lần để xác nhận).
+
+## Đưa lên mạng
+
+`npm run build` tạo thư mục `dist/` chỉ gồm file tĩnh với đường dẫn tương đối, đặt ở host nào cũng chạy (kể cả thư mục con).
+
+- GitHub Pages: đẩy repo lên GitHub, vào Settings > Pages chọn Source là "GitHub Actions". Workflow `.github/workflows/deploy.yml` sẽ chạy test, build và xuất bản mỗi lần đẩy lên `main`.
+- itch.io hoặc host khác: nén nội dung của `dist/` (`cd dist && zip -r ../bien-ai.zip .`) rồi tải lên.
 
 ## Cấu trúc mã nguồn
 
@@ -78,8 +88,10 @@ src/
   display.ts       tỉ lệ pixel nguyên: canvas luôn là bội số của 768x432, camera zoom theo
   assets.ts        đọc JSON của bộ asset, lập danh sách file cho loader của Phaser
   session.ts       một lượt chơi: mô phỏng + lựa chọn của người chơi, không phụ thuộc Phaser
+  tips.ts          gợi ý cho người chơi mới, chọn theo tình hình trên sân, không phụ thuộc Phaser
+  orientation.ts   tạm dừng và nút xoay màn hình khi điện thoại cầm dọc (lời nhắc nằm trong index.html)
   audio.ts         hiệu ứng âm thanh tổng hợp bằng WebAudio, phát qua sound manager của Phaser
-  save.ts          lưu số sao
+  save.ts          lưu số sao và các gợi ý đã xem
   data/            chỉ số quái và kỹ năng của chúng, tháp, nhánh cấp 4, tướng, phép và ba màn chơi
   sim/             mô phỏng trận đấu, không phụ thuộc trình duyệt nên test được bằng Node
     world.ts       quái, lính, tháp, đạn, đợt quái, phép, hiệu ứng trạng thái (chậm, độc, choáng, mòn giáp)
@@ -96,6 +108,7 @@ src/
     fx.ts          particle và ánh sáng cộng màu
   ui/              chữ, số bitmap, nút, panel, vòng chọn tháp, bảng tạm dừng và kết quả
 tests/             test bằng Vitest
+public/            favicon (cắt từ icons_16 của bộ asset)
 ```
 
 Mô phỏng (`sim/`) vẫn là nguồn sự thật duy nhất. Lớp hiển thị chỉ đọc trạng thái mỗi frame rồi đặt vị trí,

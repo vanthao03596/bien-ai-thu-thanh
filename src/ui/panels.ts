@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { save, showMenu, startLevel, toggleMute } from '../app'
+import { MAX_STARS, save, showMenu, startLevel, toggleMute, totalStars } from '../app'
 import { LEVELS, VIEW_H, VIEW_W } from '../data/levels'
 import type { Session } from '../session'
 import type { World } from '../sim/world'
@@ -64,6 +64,8 @@ export class InfoPanel {
 
 /** Health of the boss, shown at the bottom centre while it is on the field. */
 export class BossBar {
+  /** a boss is on the field and the bar occupies the bottom centre */
+  visible = false
   private readonly frame: Phaser.GameObjects.Image
   private readonly fill: Phaser.GameObjects.Image
 
@@ -80,6 +82,7 @@ export class BossBar {
       if (e.def.boss && e.state !== 'dying') ratio = Math.max(0, e.hp / e.def.hp)
     }
     const visible = ratio >= 0
+    this.visible = visible
     this.frame.setVisible(visible)
     this.fill.setVisible(visible && ratio > 0)
     if (visible && ratio > 0) this.fill.setCrop(0, 0, Math.max(1, Math.round(90 * ratio)), 4)
@@ -155,8 +158,10 @@ export class ResultPanel {
     const scene = this.scene
     const s = this.session
     const win = w.result === 'win'
-    const pw = 260
-    const ph = 188
+    // winning the last level ends the campaign: a taller sheet with the closing words
+    const finale = win && s.levelIndex === LEVELS.length - 1
+    const pw = finale ? 300 : 260
+    const ph = finale ? 228 : 188
     const x = (VIEW_W - pw) / 2
     const y = (VIEW_H - ph) / 2
     const { root, dimmer } = modal(scene, this.depth, 0.6)
@@ -168,7 +173,7 @@ export class ResultPanel {
     root.add(box)
     panel(scene, 'panel_parchment', 0, 0, pw, ph, box)
     box.add(
-      label(scene, pw / 2, 22, win ? 'CHIẾN THẮNG' : 'THẤT THỦ', {
+      label(scene, pw / 2, 22, finale ? 'TOÀN THẮNG' : win ? 'CHIẾN THẮNG' : 'THẤT THỦ', {
         size: 48, align: 'center', color: win ? '#a8721a' : '#861c2a', outline: null,
       }),
     )
@@ -182,6 +187,13 @@ export class ResultPanel {
         stars.push(star)
       }
       box.add(label(scene, pw / 2, 120, `Mạng còn lại: ${w.lives}/${w.level.lives}`, plain))
+      if (finale) {
+        // the win of this battle is already in the save when the sheet is built
+        const total = totalStars()
+        box.add(label(scene, pw / 2, 140, 'Quỷ vương đã bại. Biên ải yên bình trở lại.', plain))
+        box.add(label(scene, pw / 2, 156, `Tổng số sao: ${total}/${MAX_STARS}`, { ...plain, color: '#a8721a' }))
+        if (total < MAX_STARS) box.add(label(scene, pw / 2, 172, 'Chơi lại các màn để gom đủ sao.', plain))
+      }
     } else {
       box.add(label(scene, pw / 2, 84, `Thành thất thủ ở đợt ${w.waveIndex + 1}/${w.waveCount}.`, plain))
       box.add(label(scene, pw / 2, 102, `Đã hạ ${w.kills} quái.`, plain))
@@ -195,8 +207,8 @@ export class ResultPanel {
       new RectButton(scene, 93, by, 74, 'Chơi lại', 'green', retry, box)
       new RectButton(scene, 172, by, 74, 'Menu', 'red', menu, box)
     } else {
-      new RectButton(scene, 30, by, 96, 'Chơi lại', 'green', retry, box)
-      new RectButton(scene, 134, by, 96, 'Menu', 'red', menu, box)
+      new RectButton(scene, pw / 2 - 100, by, 96, 'Chơi lại', 'green', retry, box)
+      new RectButton(scene, pw / 2 + 4, by, 96, 'Menu', 'red', menu, box)
     }
 
     scene.tweens.add({ targets: box, y, alpha: 1, delay: 300, duration: 320, ease: 'Back.easeOut' })

@@ -1,7 +1,10 @@
 import Phaser from 'phaser'
-import { SCENE, fadeIn, isSwitching, levelUnlocked, save, sfx, startLevel, toggleMute, type MenuInit } from '../app'
+import {
+  MAX_STARS, SCENE, fadeIn, isSwitching, levelUnlocked, resetProgress, save, sfx, startLevel, toggleMute, totalStars,
+  type MenuInit,
+} from '../app'
 import { LEVELS, VIEW_W } from '../data/levels'
-import { frameCamera, onPixelScale, pixelScale } from '../display'
+import { frameCamera, onPixelScale, pixelScale, touchFirst } from '../display'
 import { BossBar } from '../ui/panels'
 import { GOLD, PARCHMENT_DIM, PARCHMENT_INK, label, wrapText } from '../ui/text'
 import { Cursor, HitBox, ICONS, RectButton, overClickable, panel, veil } from '../ui/widgets'
@@ -13,6 +16,8 @@ const CARD_W = 216
 const CARD_H = 214
 const CARD_GAP = 24
 const CARD_Y = 104
+/** milliseconds the reset button waits for its confirming second press */
+const RESET_CONFIRM_MS = 3000
 
 interface Card {
   root: Phaser.GameObjects.Container
@@ -30,6 +35,8 @@ export class MenuScene extends Phaser.Scene {
   private levels!: Phaser.GameObjects.Container
   private soundButton!: RectButton
   private cards: Card[] = []
+  private resetButton: RectButton | null = null
+  private resetArmedUntil = 0
 
   constructor() {
     super(SCENE.menu)
@@ -41,6 +48,8 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this.cards = []
+    this.resetButton = null
+    this.resetArmedUntil = 0
     onPixelScale(this, () => frameCamera(this.cameras.main, pixelScale(this)))
     this.input.setPollAlways()
 
@@ -78,8 +87,13 @@ export class MenuScene extends Phaser.Scene {
     new RectButton(this, VIEW_W / 2 - 60, 250, 120, 'Bắt đầu', 'green', () => this.show('levels'), root)
     this.soundButton = new RectButton(this, VIEW_W / 2 - 60, 278, 120, '', 'green', () => toggleMute(this.game), root)
     const help = { align: 'center', alpha: 0.9 } as const
-    root.add(label(this, VIEW_W / 2, 372, 'Chuột trái: chọn và xây   Chuột phải: hủy   Space: tạm dừng   Lăn chuột: phóng to', help))
-    root.add(label(this, VIEW_W / 2, 390, 'F: tua nhanh   1, 2: phép   H: chọn tướng   M: tắt tiếng', help))
+    if (touchFirst()) {
+      root.add(label(this, VIEW_W / 2, 372, 'Chạm: chọn và xem thông tin   Chạm lần nữa: xác nhận', help))
+      root.add(label(this, VIEW_W / 2, 390, 'Hai ngón: phóng to, thu nhỏ   Một ngón kéo: di chuyển bản đồ', help))
+    } else {
+      root.add(label(this, VIEW_W / 2, 372, 'Chuột trái: chọn và xây   Chuột phải: hủy   Space: tạm dừng   Lăn chuột: phóng to', help))
+      root.add(label(this, VIEW_W / 2, 390, 'F: tua nhanh   1, 2: phép   H: chọn tướng   M: tắt tiếng', help))
+    }
     return root
   }
 
@@ -125,6 +139,10 @@ export class MenuScene extends Phaser.Scene {
       this.cards.push({ root: card, hit, open })
     })
     new RectButton(this, VIEW_W / 2 - 50, 350, 100, 'Quay lại', 'red', () => this.show('title'), root)
+    root.add(label(this, left, 352, `Tổng số sao: ${totalStars()}/${MAX_STARS}`))
+    if (Object.keys(save.stars).length > 0 || save.tips.length > 0) {
+      this.resetButton = new RectButton(this, left + CARD_W * LEVELS.length + CARD_GAP * (LEVELS.length - 1) - 120, 350, 120, 'Xóa tiến độ', 'red', () => this.pressReset(), root)
+    }
     return root
   }
 
@@ -137,9 +155,21 @@ export class MenuScene extends Phaser.Scene {
     })
   }
 
+  /** Wipes the save on the second press; the first one only asks. */
+  private pressReset(): void {
+    if (this.time.now > this.resetArmedUntil) {
+      this.resetArmedUntil = this.time.now + RESET_CONFIRM_MS
+      return
+    }
+    resetProgress()
+    const init: MenuInit = { screen: 'levels' }
+    this.scene.restart(init)
+  }
+
   private show(screen: Screen): void {
     if (screen === this.screen) return
     this.screen = screen
+    this.resetArmedUntil = 0
     this.title.setVisible(screen === 'title')
     this.levels.setVisible(screen === 'levels')
     this.tweens.add({ targets: this.dimmer, fillAlpha: screen === 'title' ? 0.45 : 0.55, duration: 200 })
@@ -148,6 +178,7 @@ export class MenuScene extends Phaser.Scene {
 
   override update(): void {
     this.soundButton.setText(`Âm thanh: ${save.muted ? 'Tắt' : 'Bật'}`)
+    this.resetButton?.setText(this.time.now <= this.resetArmedUntil ? 'Xóa thật chứ?' : 'Xóa tiến độ')
     if (this.screen === 'levels') {
       for (const card of this.cards) {
         // an open card lifts slightly under the pointer, once it has settled in place

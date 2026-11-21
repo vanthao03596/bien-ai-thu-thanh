@@ -1,12 +1,13 @@
 import Phaser from 'phaser'
-import { SCENE, fadeIn, isSwitching, sfx, toggleMute } from '../app'
+import { APP_EVENT, SCENE, fadeIn, isSwitching, retireTip, save, sfx, toggleMute } from '../app'
 import { ENEMIES, type EnemyType } from '../data/enemies'
 import { VIEW_H, VIEW_W } from '../data/levels'
 import { HERO, SPELLS } from '../data/towers'
-import { frameCamera, onPixelScale, pixelScale } from '../display'
-import type { Session } from '../session'
+import { frameCamera, onPixelScale, pixelScale, touchFirst } from '../display'
+import { WAVE_CALL, type Session } from '../session'
 import type { SimEvent } from '../sim/types'
 import type { World } from '../sim/world'
+import { Tips } from '../tips'
 import { BuildMenu, TowerMenu, type HudFrame } from '../ui/menus'
 import { BossBar, InfoPanel, PausePanel, ResultPanel } from '../ui/panels'
 import { Digits, label } from '../ui/text'
@@ -35,6 +36,8 @@ const PURSE = { x: 68, y: 16 } as const
 
 interface WaveButton {
   sprite: Phaser.GameObjects.Sprite
+  /** tick shown while a touch player is reading the preview */
+  check: Phaser.GameObjects.Image
   timer: Digits
   hit: HitBox
 }
@@ -112,6 +115,9 @@ export class HudScene extends Phaser.Scene {
   private heroTimer!: Digits
   private spells: SpellButton[] = []
   private hint!: Phaser.GameObjects.Text
+  private hintText = ''
+  private tips!: Tips
+  private touch = false
   private waveButtons: WaveButton[] = []
   private buildMenu!: BuildMenu
   private towerMenu!: TowerMenu
@@ -138,6 +144,9 @@ export class HudScene extends Phaser.Scene {
     this.spells = []
     this.waveButtons = []
     this.flyingCoins = 0
+    this.hintText = ''
+    this.touch = touchFirst()
+    this.tips = new Tips(session, save.tips, retireTip, this.touch)
 
     onPixelScale(this, () => frameCamera(this.cameras.main, pixelScale(this)))
     // hover state must follow widgets that appear under a resting pointer
@@ -208,29 +217,24 @@ export class HudScene extends Phaser.Scene {
       ], s, Z.bar),
     )
 
-    this.hint = label(this, VIEW_W / 2, VIEW_H - 24, 'Xây tháp trên các ô đất, rồi bấm nút đầu lâu để gọi đợt quái đầu tiên', {
-      align: 'center',
-    }).setDepth(Z.bar)
+    this.hint = label(this, VIEW_W / 2, VIEW_H - 24, '', { align: 'center' }).setDepth(Z.bar).setVisible(false)
   }
 
   private createWaveButtons(): void {
-    const w = this.session.world
+    const s = this.session
     this.waveButtons = this.battle.view.map.spawnPoints.map(() => {
       const spr = this.add
         .sprite(0, 0, 'ui/wave_call_button')
         .play(animKey('ui/wave_call_button', 'pulse'))
         .setDepth(Z.menus)
         .setVisible(false)
+      const check = icon(this, 'check', 0, 0).setDepth(Z.menus).setVisible(false)
       const timer = new Digits(this, 0, 0, '', 'center')
       timer.obj.setDepth(Z.menus).setVisible(false)
-      const hit = new HitBox(this, 0, 0, 32, 32, {
-        onClick: () => {
-          if (w.callWave()) sfx.play('click')
-        },
-      })
+      const hit = new HitBox(this, 0, 0, 32, 32, { onClick: (pointer) => s.callWave(pointer.wasTouch) })
       hit.zone.setDepth(Z.menus)
       hit.setEnabled(false)
-      return { sprite: spr, timer, hit }
+      return { sprite: spr, check, timer, hit }
     })
   }
 
@@ -356,11 +360,16 @@ export class HudScene extends Phaser.Scene {
           break
       }
     })
+    // the window lost focus, or the rotate notice covers the game
     const onBlur = (): void => {
       if (s.world.result === null) s.paused = true
     }
     this.game.events.on(Phaser.Core.Events.BLUR, onBlur)
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.game.events.off(Phaser.Core.Events.BLUR, onBlur))
+    this.game.events.on(APP_EVENT.hold, onBlur)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off(Phaser.Core.Events.BLUR, onBlur)
+      this.game.events.off(APP_EVENT.hold, onBlur)
+    })
   }
 
   private bindBattle(): void {
@@ -441,7 +450,7 @@ export class HudScene extends Phaser.Scene {
     const tower = live && sel.kind === 'tower' ? sel.tower : null
     this.towerMenu.update(f, tower, tower ? this.battle.toHud(tower.x, tower.y) : null, zoom)
     if (live && sel.kind === 'hero') f.info = [HERO.name, 'Bấm vào bản đồ để ra lệnh di chuyển.']
-    this.updateBar(f, w, live)
+    this.updateBar(f, w, live, dt)
 
     this.info.show(f.info, f.infoBottom)
     this.bossBar.update(w)
@@ -459,14 +468,15 @@ export class HudScene extends Phaser.Scene {
     if (s.mode === 'rally' && sel.kind === 'tower') {
       const t = sel.tower
       f.ranges.push({ x: t.x, y: t.y + 4, r: w.towerRange(t), ok: true })
-      f.info = ['Đặt điểm tập kết', 'Bấm vào một điểm trong vùng sáng. Chuột phải để hủy.']
+      f.info = ['Đặt điểm tập kết', this.touch ? 'Chạm vào một điểm trong vùng sáng.' : 'Bấm vào một điểm trong vùng sáng. Chuột phải để hủy.']
       return mouse ? { x: wp.x, y: wp.y, ok: w.canRally(t, wp.x, wp.y) } : null
     }
+    const back = this.touch ? 'Chạm lại nút phép để hủy.' : 'Chuột phải để hủy.'
     if (s.mode === 'fire') {
-      f.info = [SPELLS.fire.name, 'Chọn nơi trút lửa. Gây sát thương cả quái bay. Chuột phải để hủy.']
+      f.info = [SPELLS.fire.name, `Chọn nơi trút lửa. Gây sát thương cả quái bay. ${back}`]
       if (mouse) f.ranges.push({ x: wp.x, y: wp.y + 4, r: SPELLS.fire.radius + SPELLS.fire.scatter, ok: false })
     } else if (s.mode === 'reinforce') {
-      f.info = [SPELLS.reinforce.name, 'Chọn một điểm trên đường để gọi hai dân binh. Chuột phải để hủy.']
+      f.info = [SPELLS.reinforce.name, `Chọn một điểm trên đường để gọi hai dân binh. ${back}`]
       if (mouse) f.ranges.push({ x: wp.x, y: wp.y + 4, r: 22, ok: true })
     }
     return null
@@ -493,8 +503,10 @@ export class HudScene extends Phaser.Scene {
 
   /** Skull buttons at the road heads that will be used by the next wave. */
   private updateWaveButtons(f: HudFrame, live: boolean): void {
-    const w = this.session.world
+    const s = this.session
+    const w = s.world
     const spawns = this.battle.view.map.spawnPoints
+    const armed = live && s.armed === WAVE_CALL
     const used = new Set<number>()
     if (live && w.canCallWave()) {
       for (const grp of w.nextWaveGroups()) used.add(Math.min(grp.path ?? 0, spawns.length - 1))
@@ -504,6 +516,7 @@ export class HudScene extends Phaser.Scene {
       b.sprite.setVisible(on)
       b.hit.setEnabled(on)
       b.timer.obj.setVisible(on && w.waveTimer !== null)
+      b.check.setVisible(on && armed)
       if (!on) return
       const sp = spawns[idx]
       const inside = w.level.spawns[idx] !== 'edge'
@@ -512,12 +525,14 @@ export class HudScene extends Phaser.Scene {
       const y = Math.round(Phaser.Math.Clamp(p.y, 60, VIEW_H - 34))
       b.hit.zone.setPosition(x - 16, y - 16)
       b.sprite.setPosition(x, y + (b.hit.down ? 1 : 0))
+      b.check.setPosition(x - 8, y - 8)
       if (w.waveTimer !== null) b.timer.set(String(Math.ceil(w.waveTimer))).moveTo(x, y - 28)
-      if (b.hit.hover) {
+      if (b.hit.hover || armed) {
         const bonus = w.earlyBonus()
+        const how = armed ? 'Chạm lần nữa để gọi quái ra trận.' : 'Bấm để gọi quái ra trận.'
         f.info = [
           `Đợt ${w.waveIndex + 2}/${w.waveCount}: ${this.waveSummary(w)}`,
-          bonus > 0 ? `Gọi sớm được thưởng ${bonus} vàng.` : 'Bấm để gọi quái ra trận.',
+          bonus > 0 ? `Gọi sớm được thưởng ${bonus} vàng.${armed ? ` ${how}` : ''}` : how,
           ...this.waveTraits(w),
         ]
       }
@@ -525,7 +540,7 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** Resources, speed and pause, the hero and the spells. */
-  private updateBar(f: HudFrame, w: World, live: boolean): void {
+  private updateBar(f: HudFrame, w: World, live: boolean, dt: number): void {
     const s = this.session
     const hurt = w.time - w.leakT < 0.6 && Math.floor(this.clock * 12) % 2 === 0
     this.heart.setY(8 + (hurt ? 1 : 0)).setAlpha(hurt ? 0.5 : 1)
@@ -560,8 +575,16 @@ export class HudScene extends Phaser.Scene {
 
     for (const spell of this.spells) spell.update(f, live)
 
-    const showHint = live && w.waveIndex === -1 && !(f.info && f.infoBottom)
+    // one line of advice for new players, unless something else needs the bottom of the screen
+    const tip = this.tips.update(dt)
+    const showHint = tip !== null && s.mode === 'normal' && !this.bossBar.visible && !(f.info && f.infoBottom)
     this.hint.setVisible(showHint)
-    if (showHint) this.hint.setAlpha(0.75 + 0.25 * Math.sin(this.clock * 4))
+    if (showHint && tip !== null) {
+      if (tip !== this.hintText) {
+        this.hintText = tip
+        this.hint.setText(tip)
+      }
+      this.hint.setAlpha(0.75 + 0.25 * Math.sin(this.clock * 4))
+    }
   }
 }

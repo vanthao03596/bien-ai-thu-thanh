@@ -4,6 +4,8 @@ export interface SaveData {
   /** best star rating per level id */
   stars: Record<string, number>
   muted: boolean
+  /** ids of the beginner tips the player no longer needs */
+  tips: string[]
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -11,7 +13,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 export function loadSave(): SaveData {
-  const data: SaveData = { stars: {}, muted: false }
+  const data: SaveData = { stars: {}, muted: false, tips: [] }
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return data
@@ -23,6 +25,11 @@ export function loadSave(): SaveData {
       }
     }
     data.muted = parsed.muted === true
+    if (Array.isArray(parsed.tips)) {
+      for (const id of parsed.tips as unknown[]) {
+        if (typeof id === 'string' && !data.tips.includes(id)) data.tips.push(id)
+      }
+    }
   } catch {
     // storage can be blocked (private mode); the game simply starts fresh
   }

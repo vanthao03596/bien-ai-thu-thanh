@@ -11,6 +11,12 @@ export interface BattleInit {
   demo: boolean
 }
 
+/** Game-wide events sent through game.events. */
+export const APP_EVENT = {
+  /** the game is covered (rotate-your-phone notice): a running battle should pause */
+  hold: 'app-hold',
+} as const
+
 export interface MenuInit {
   screen: 'title' | 'levels'
 }
@@ -40,6 +46,29 @@ export function levelUnlocked(index: number): boolean {
 
 export function recordWin(levelId: string, stars: number): void {
   save.stars[levelId] = Math.max(save.stars[levelId] ?? 0, stars)
+  storeSave(save)
+}
+
+export const MAX_STARS = LEVELS.length * 3
+
+/** Stars earned over the whole campaign. */
+export function totalStars(): number {
+  let n = 0
+  for (const level of LEVELS) n += save.stars[level.id] ?? 0
+  return n
+}
+
+/** A beginner tip has done its job and is not shown again. */
+export function retireTip(id: string): void {
+  if (save.tips.includes(id)) return
+  save.tips.push(id)
+  storeSave(save)
+}
+
+/** Forgets stars and tips; the sound setting stays. */
+export function resetProgress(): void {
+  save.stars = {}
+  save.tips = []
   storeSave(save)
 }
 

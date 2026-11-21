@@ -14,6 +14,9 @@ export type Selection =
 
 const NONE: Selection = { kind: 'none' }
 
+/** id of the armed option while a touch player is looking at the next wave before calling it */
+export const WAVE_CALL = 'wave-call'
+
 /**
  * One played level: the simulation plus everything the player has selected or
  * armed. It knows nothing about rendering, so scenes only read it and call it.
@@ -28,6 +31,10 @@ export class Session {
   armed: string | null = null
   /** seconds since the battle was decided */
   resultT = 0
+  /** how often the player has sent the hero somewhere */
+  heroOrders = 0
+  /** how often the player has moved a rally point */
+  rallyOrders = 0
   private acc = 0
 
   constructor(
@@ -54,7 +61,11 @@ export class Session {
     }
     const events = w.events.slice()
     w.events.length = 0
-    for (const ev of events) this.sfx.play(ev)
+    for (const ev of events) {
+      this.sfx.play(ev)
+      // the preview the player was reading belongs to a wave that is now on the field
+      if (ev === 'wave' && this.armed === WAVE_CALL) this.armed = null
+    }
     if (w.result !== null) {
       if (this.resultT === 0) this.onResult()
       this.resultT += dt
@@ -140,6 +151,14 @@ export class Session {
     action()
   }
 
+  /** Calls the next wave; on touch screens the first tap only shows what is coming. */
+  callWave(touch: boolean): void {
+    if (!this.live || !this.world.canCallWave()) return
+    this.confirm(WAVE_CALL, touch, () => {
+      if (this.world.callWave()) this.sfx.play('click')
+    })
+  }
+
   // ------------------------------------------------------------ picking
 
   plotAt(x: number, y: number): Plot | null {
@@ -176,6 +195,7 @@ export class Session {
     if (this.mode === 'rally') {
       if (sel.kind === 'tower' && w.setRally(sel.tower, x, y)) {
         this.mode = 'normal'
+        this.rallyOrders += 1
         this.sfx.play('select')
       } else {
         this.sfx.play('deny')
@@ -194,6 +214,7 @@ export class Session {
     if (sel.kind === 'hero' && !this.heroAt(x, y)) {
       w.moveHero(x, y)
       w.flags.push({ x, y, t: 1.4 })
+      this.heroOrders += 1
       this.selection = NONE
       this.sfx.play('select')
       return
