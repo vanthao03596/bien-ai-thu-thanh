@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
 import { Sfx } from './audio'
+import { DIFFICULTIES, nextDifficulty, type Difficulty } from './data/difficulty'
 import { LEVELS } from './data/levels'
-import { loadSave, storeSave, type SaveData } from './save'
+import { emptySave, loadSave, storeSave, type SaveData } from './save'
 
 export const SCENE = { boot: 'boot', battle: 'battle', menu: 'menu', hud: 'hud' } as const
 
@@ -40,22 +41,42 @@ export function toggleMute(game: Phaser.Game): void {
   storeSave(save)
 }
 
-export function levelUnlocked(index: number): boolean {
-  return index === 0 || (save.stars[LEVELS[index - 1].id] ?? 0) >= 1
+/** Best rating of a level on a difficulty (the chosen one unless told otherwise); 0 when never won there. */
+export function bestStars(levelId: string, difficulty: Difficulty = save.difficulty): number {
+  return save.stars[difficulty][levelId] ?? 0
 }
 
-export function recordWin(levelId: string, stars: number): void {
-  save.stars[levelId] = Math.max(save.stars[levelId] ?? 0, stars)
+/** A level opens once the one before it has been won, on any difficulty. */
+export function levelUnlocked(index: number): boolean {
+  if (index === 0) return true
+  const before = LEVELS[index - 1].id
+  return DIFFICULTIES.some((d) => bestStars(before, d) >= 1)
+}
+
+export function recordWin(levelId: string, stars: number, difficulty: Difficulty): void {
+  save.stars[difficulty][levelId] = Math.max(bestStars(levelId, difficulty), stars)
   storeSave(save)
+}
+
+/** Moves on to the next difficulty setting and remembers it. */
+export function cycleDifficulty(): Difficulty {
+  save.difficulty = nextDifficulty(save.difficulty)
+  storeSave(save)
+  return save.difficulty
 }
 
 export const MAX_STARS = LEVELS.length * 3
 
-/** Stars earned over the whole campaign. */
+/** Stars earned over the whole campaign on the chosen difficulty. */
 export function totalStars(): number {
   let n = 0
-  for (const level of LEVELS) n += save.stars[level.id] ?? 0
+  for (const level of LEVELS) n += bestStars(level.id)
   return n
+}
+
+/** Something was won or learned that a reset would wipe. */
+export function hasProgress(): boolean {
+  return save.tips.length > 0 || DIFFICULTIES.some((d) => Object.keys(save.stars[d]).length > 0)
 }
 
 /** A beginner tip has done its job and is not shown again. */
@@ -65,9 +86,9 @@ export function retireTip(id: string): void {
   storeSave(save)
 }
 
-/** Forgets stars and tips; the sound setting stays. */
+/** Forgets stars and tips; the sound and difficulty settings stay. */
 export function resetProgress(): void {
-  save.stars = {}
+  save.stars = emptySave().stars
   save.tips = []
   storeSave(save)
 }

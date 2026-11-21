@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { sfx } from '../app'
 import { VIEW_H, VIEW_W } from '../data/levels'
 import {
+  DAMAGE_KIND_NAME,
   MAX_LEVEL,
   MAX_SKILL_RANK,
   SKILL_INFO,
@@ -147,7 +148,7 @@ function statLine(type: TowerType, stats: TowerStats, extra = ''): string {
     return `Lính: ${stats.soldierHp} máu, sát thương ${stats.dmg[0]}-${stats.dmg[1]}, giáp ${Math.round(stats.soldierArmor * 100)}%`
   }
   const splash = stats.splash > 0 ? `, nổ lan ${stats.splash}` : ''
-  return `Sát thương ${stats.dmg[0]}-${stats.dmg[1]}, nhịp ${stats.cooldown}s, tầm ${stats.range}${splash}${extra}`
+  return `Sát thương ${DAMAGE_KIND_NAME[TOWERS[type].dmgKind]} ${stats.dmg[0]}-${stats.dmg[1]}, nhịp ${stats.cooldown}s, tầm ${stats.range}${splash}${extra}`
 }
 
 function towerInfo(t: Tower, level: number): string {
@@ -325,7 +326,9 @@ export class TowerMenu {
     const sellArmed = s.armed === 'tower-sell'
     this.sell.caption.set(`+${value}`)
     this.sell.check.setVisible(sellArmed)
-    if (this.sell.button.hover || sellArmed) f.info = ['Bán tháp', `Hoàn lại ${value} vàng.`]
+    if (this.sell.button.hover || sellArmed) {
+      f.info = ['Bán tháp', value === t.invested ? `Chưa vào trận: hoàn lại đủ ${value} vàng.` : `Hoàn lại ${value} vàng.`]
+    }
 
     const barracks = t.type === 'barracks'
     this.rally.slot.setVisible(barracks)

@@ -171,6 +171,8 @@ describe('towers', () => {
     expect(t.level).toBe(2)
     const invested = TOWERS.mage.cost[0] + TOWERS.mage.cost[1] + TOWERS.mage.cost[2]
     expect(w.gold).toBe(1000 - invested)
+    w.callWave()
+    expect(w.sellValue(t)).toBe(Math.floor(invested * SELL_REFUND))
     expect(w.sell(t)).toBe(true)
     expect(w.gold).toBe(1000 - invested + Math.floor(invested * SELL_REFUND))
     expect(w.plots[0].tower).toBeNull()
@@ -250,6 +252,23 @@ describe('barracks', () => {
     }
   })
 
+  it('before the first wave a tower sells for everything it cost', () => {
+    const w = new World(testLevel())
+    const t = w.build(0, 'archer')
+    if (!t) throw new Error('no tower')
+    run(w, 1.1)
+    w.upgrade(t)
+    const invested = TOWERS.archer.cost[0] + TOWERS.archer.cost[1]
+    expect(w.sellValue(t)).toBe(invested)
+    expect(w.sell(t)).toBe(true)
+    expect(w.gold).toBe(1000)
+    // once the battle has begun the usual share applies
+    const again = w.build(0, 'archer')
+    if (!again) throw new Error('no tower')
+    w.callWave()
+    expect(w.sellValue(again)).toBe(Math.floor(TOWERS.archer.cost[0] * SELL_REFUND))
+  })
+
   it('selling the barracks dismisses its soldiers and frees their enemy', () => {
     const w = new World(testLevel())
     const t = w.build(0, 'barracks')
@@ -313,6 +332,102 @@ describe('hero and spells', () => {
     for (const m of men) expect(Math.abs(m.y - 192)).toBeLessThan(2)
     run(w, SPELLS.reinforce.life + 3)
     expect(w.soldiers.filter((s) => s.kind === 'reinforcement')).toHaveLength(0)
+  })
+})
+
+describe('the damage model', () => {
+  it('an explosion is stopped by half the armor only', () => {
+    const w = new World(testLevel())
+    const king = w.spawnEnemy(ENEMIES.ogre_king, 0)
+    const armor = ENEMIES.ogre_king.armor
+    expect(armor).toBe(0.25)
+    expect(w.damageEnemy(king, 200, 'physical')).toBe(200 * (1 - armor))
+    expect(w.damageEnemy(king, 200, 'explosion')).toBe(200 * (1 - armor / 2))
+    expect(w.damageEnemy(king, 200, 'magic')).toBe(200)
+    expect(w.damageEnemy(king, 200, 'true')).toBe(200)
+    // resistance to magic does nothing against a blast
+    const shaman = w.spawnEnemy(ENEMIES.shaman, 0)
+    expect(w.damageEnemy(shaman, 10, 'explosion')).toBe(10)
+  })
+
+  it('the bombs and rockets of the artillery are explosions', () => {
+    expect(TOWERS.artillery.dmgKind).toBe('explosion')
+    expect(TOWERS.archer.dmgKind).toBe('physical')
+    expect(TOWERS.mage.dmgKind).toBe('magic')
+    const w = new World(testLevel())
+    const t = w.build(0, 'artillery')
+    if (!t) throw new Error('no tower')
+    w.spawnEnemy(ENEMIES.ogre, 0, 300)
+    let kind = ''
+    for (let i = 0; i < 60 * 4 && !kind; i++) {
+      w.update(DT)
+      kind = w.projectiles.find((p) => p.kind === 'bomb')?.dmgKind ?? ''
+    }
+    expect(kind).toBe('explosion')
+  })
+
+  it('a hit lands in whole points, rounded down after armor', () => {
+    const w = new World(testLevel())
+    const wolf = w.spawnEnemy(ENEMIES.ghost_wolf, 0)
+    // 6 points against 80% armor leave 1.2
+    expect(w.damageEnemy(wolf, 6, 'physical')).toBe(1)
+    expect(wolf.hp).toBe(ENEMIES.ghost_wolf.hp - 1)
+  })
+
+  it('heavy armor turns a small hit away altogether', () => {
+    const w = new World(testLevel())
+    const wolf = w.spawnEnemy(ENEMIES.ghost_wolf, 0)
+    wolf.hurtT = 9
+    expect(w.damageEnemy(wolf, 4, 'physical')).toBe(0)
+    expect(wolf.hp).toBe(ENEMIES.ghost_wolf.hp)
+    // a hit that did nothing neither flashes nor interrupts regeneration
+    expect(wolf.hurtT).toBe(9)
+    expect(wolf.hitAt).toBe(-1)
+    // the same arrow as a blast or as magic gets through
+    expect(w.damageEnemy(wolf, 4, 'explosion')).toBe(2)
+    expect(w.damageEnemy(wolf, 4, 'magic')).toBe(4)
+  })
+
+  it('damage over time is not rounded away', () => {
+    const w = new World(testLevel())
+    const orc = w.spawnEnemy(ENEMIES.orc, 0)
+    expect(w.damageEnemy(orc, 0.25, 'true', 0, true)).toBe(0.25)
+    expect(orc.hp).toBe(ENEMIES.orc.hp - 0.25)
+    expect(orc.hitAt).toBe(-1)
+  })
+
+  it('armor can be raised and lowered in any order and comes back exactly', () => {
+    const w = new World(testLevel())
+    const knight = w.spawnEnemy(ENEMIES.dark_knight, 0)
+    const armor = ENEMIES.dark_knight.armor
+    w.addArmor(knight, 0.5)
+    expect(knight.armor).toBe(1)
+    expect(w.damageEnemy(knight, 100, 'physical')).toBe(0)
+    w.addArmor(knight, -2)
+    expect(knight.armor).toBe(0)
+    w.addArmor(knight, -0.5)
+    w.addArmor(knight, 2)
+    expect(knight.armor).toBeCloseTo(armor)
+    expect(knight.rawArmor).toBeCloseTo(armor)
+  })
+
+  it('one factor scales the damage an enemy takes, another the damage it deals', () => {
+    const w = new World(testLevel())
+    const orc = w.spawnEnemy(ENEMIES.orc, 0)
+    expect(orc.takenFactor).toBe(1)
+    expect(orc.dmgFactor).toBe(1)
+    orc.takenFactor = 1.5
+    expect(w.damageEnemy(orc, 10, 'true')).toBe(15)
+    orc.takenFactor /= 1.5
+    expect(w.damageEnemy(orc, 10, 'true')).toBe(10)
+  })
+
+  it('the armor of a soldier takes whole points off a blow, rounded down', () => {
+    const w = new World(testLevel())
+    const hero = w.hero
+    // 40% armor stops floor(4.4) of 11 points
+    w.damageSoldier(hero, 11)
+    expect(hero.hp).toBe(HERO.hp - 7)
   })
 })
 

@@ -5,7 +5,15 @@ import { inRange, type World } from './world'
 
 /** part of the plots the bot fills before it only upgrades */
 const BUILD_SHARE = 0.7
-const BUILD_ORDER: readonly TowerType[] = ['archer', 'barracks', 'mage', 'archer', 'artillery', 'mage', 'archer', 'barracks']
+export const BUILD_ORDER: readonly TowerType[] = ['archer', 'barracks', 'mage', 'archer', 'artillery', 'mage', 'archer', 'barracks']
+
+/** How one bot differs from the next. The balance tests field a panel of them so that no single lucky or unlucky run decides. */
+export interface BotPlan {
+  /** the tower types in the order they are built, repeated as needed */
+  order?: readonly TowerType[]
+  /** call the next wave as soon as the field is empty */
+  callEarly?: boolean
+}
 
 /**
  * A simple automatic player. It drives the battle on the title screen and
@@ -14,13 +22,16 @@ const BUILD_ORDER: readonly TowerType[] = ['archer', 'barracks', 'mage', 'archer
 export class Bot {
   private readonly world: World
   private readonly order: Plot[]
+  private readonly buildOrder: readonly TowerType[]
   private thinkT = 0
   private built = 0
   /** when false the bot never calls a wave early (title screen pacing) */
-  callEarly = false
+  callEarly: boolean
 
-  constructor(world: World) {
+  constructor(world: World, plan: BotPlan = {}) {
     this.world = world
+    this.buildOrder = plan.order ?? BUILD_ORDER
+    this.callEarly = plan.callEarly ?? false
     // best plots first: the ones that see the most road
     const score = (plot: Plot): number => {
       let n = 0
@@ -57,7 +68,7 @@ export class Bot {
       const wantTowers = Math.min(Math.ceil(this.order.length * BUILD_SHARE), 3 + Math.floor((w.waveIndex + 1) * 0.9))
       const free = this.order.find((p) => p.tower === null)
       if (free && w.towers.length < wantTowers) {
-        const type = BUILD_ORDER[this.built % BUILD_ORDER.length]
+        const type = this.buildOrder[this.built % this.buildOrder.length]
         if (w.gold < TOWERS[type].cost[0]) return
         if (w.build(free.id, type)) this.built += 1
         continue
@@ -84,7 +95,7 @@ export class Bot {
         continue
       }
       if (!best && free) {
-        const type = BUILD_ORDER[this.built % BUILD_ORDER.length]
+        const type = this.buildOrder[this.built % this.buildOrder.length]
         if (w.gold >= TOWERS[type].cost[0] && w.build(free.id, type)) {
           this.built += 1
           continue

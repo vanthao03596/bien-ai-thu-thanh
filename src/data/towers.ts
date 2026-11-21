@@ -1,6 +1,16 @@
+import type { DamageKind } from '../sim/types'
+
 export type TowerType = 'archer' | 'mage' | 'artillery' | 'barracks'
 
 export const TOWER_TYPES: readonly TowerType[] = ['archer', 'barracks', 'mage', 'artillery']
+
+/** How the info panel names each kind of damage. */
+export const DAMAGE_KIND_NAME: Record<DamageKind, string> = {
+  physical: 'vật lý',
+  explosion: 'nổ',
+  magic: 'phép',
+  true: 'chuẩn',
+}
 
 export const MAX_LEVEL = 2 // zero based: levels 0, 1, 2
 
@@ -19,6 +29,8 @@ export interface TowerDef {
   /** seconds between shots (unused for barracks) */
   cooldown: readonly [number, number, number]
   dmg: readonly [readonly [number, number], readonly [number, number], readonly [number, number]]
+  /** what the shots are made of: decides how armor and resistance answer them */
+  dmgKind: DamageKind
   /** artillery: blast radius */
   splash: readonly [number, number, number]
   /** barracks: soldier hit points and armor */
@@ -28,34 +40,37 @@ export interface TowerDef {
 
 export const TOWERS: Record<TowerType, TowerDef> = {
   archer: {
-    type: 'archer', name: 'Tháp cung', blurb: 'Bắn nhanh, tầm xa, hạ được quái bay.',
+    type: 'archer', name: 'Tháp cung', blurb: 'Bắn nhanh, tầm xa, hạ được quái bay. Kém trước giáp dày.',
     sheetBase: 'towers/archer_tower',
     cost: [70, 110, 160],
     range: [130, 145, 160],
     cooldown: [0.8, 0.65, 0.5],
     dmg: [[4, 6], [7, 11], [11, 17]],
+    dmgKind: 'physical',
     splash: [0, 0, 0],
     soldierHp: [0, 0, 0],
     soldierArmor: [0, 0, 0],
   },
   mage: {
-    type: 'mage', name: 'Tháp phép', blurb: 'Phép thuật xuyên giáp. Cấp 3 làm chậm.',
+    type: 'mage', name: 'Tháp phép', blurb: 'Phép thuật bỏ qua giáp. Cấp 3 làm chậm.',
     sheetBase: 'towers/mage_tower',
     cost: [100, 160, 240],
     range: [112, 124, 138],
     cooldown: [1.5, 1.5, 1.4],
-    dmg: [[12, 20], [24, 38], [42, 64]],
+    dmg: [[10, 16], [24, 38], [42, 64]],
+    dmgKind: 'magic',
     splash: [0, 0, 0],
     soldierHp: [0, 0, 0],
     soldierArmor: [0, 0, 0],
   },
   artillery: {
-    type: 'artillery', name: 'Tháp pháo', blurb: 'Nổ lan diện rộng, không bắn quái bay.',
+    type: 'artillery', name: 'Tháp pháo', blurb: 'Nổ lan, giáp chỉ cản một nửa. Không bắn quái bay.',
     sheetBase: 'towers/artillery_tower',
     cost: [125, 220, 320],
     range: [120, 132, 146],
     cooldown: [3.0, 3.0, 2.8],
     dmg: [[10, 18], [22, 36], [40, 62]],
+    dmgKind: 'explosion',
     splash: [34, 38, 44],
     soldierHp: [0, 0, 0],
     soldierArmor: [0, 0, 0],
@@ -67,6 +82,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     range: [105, 105, 105],
     cooldown: [0, 0, 0],
     dmg: [[2, 4], [4, 7], [7, 12]],
+    dmgKind: 'physical',
     splash: [0, 0, 0],
     soldierHp: [50, 85, 130],
     soldierArmor: [0, 0.15, 0.3],
@@ -90,24 +106,33 @@ interface SkillBase {
   icon: string
 }
 
-/** Purchasable skills of the specialisations. Every list of three holds one value per rank. */
+/** Skill prices follow one rule: a base price for the first rank, then the same step for every further rank. */
+function price(base: number, step: number): Ranks {
+  return [base, step, step]
+}
+
+/**
+ * Purchasable skills of the specialisations. Every list of three holds one
+ * value per rank, and every skill grows along one such list only: a rank makes
+ * a skill hit harder, or last longer, or reach more targets, never all at once.
+ */
 export const SKILLS = {
-  poison: { name: 'Tên tẩm độc', cost: [100, 80, 80], icon: 'skull', dps: [3, 5, 8], time: 4 },
-  volley: { name: 'Loạt tiễn', cost: [120, 100, 100], icon: 'wave', targets: [3, 5, 7], cooldown: 8 },
-  headshot: { name: 'Phát chí mạng', cost: [130, 110, 110], icon: 'star', chance: [0.15, 0.25, 0.35], mult: 2.5 },
-  cripple: { name: 'Tên xuyên gân', cost: [90, 70, 70], icon: 'hourglass', time: [1, 1.75, 2.5], factor: 0.5 },
-  blizzard: { name: 'Bão tuyết', cost: [150, 120, 120], icon: 'wave', freeze: [1.2, 1.8, 2.4], radius: 60, cooldown: 12 },
-  shatter: { name: 'Băng vỡ', cost: [120, 100, 100], icon: 'star', part: [0.3, 0.5, 0.7], radius: 30 },
-  chain: { name: 'Sét lan', cost: [140, 120, 120], icon: 'wave', jumps: [1, 2, 3], part: 0.6, radius: 64 },
-  sunder: { name: 'Phá giáp', cost: [110, 90, 90], icon: 'shield', shred: [0.1, 0.18, 0.26] },
-  cluster: { name: 'Đạn chùm', cost: [160, 130, 130], icon: 'star', bomblets: [2, 3, 4], part: 0.4, scatter: 30, splash: 26 },
-  oil: { name: 'Dầu lửa', cost: [140, 110, 110], icon: 'fire', dps: [6, 10, 14], time: 4, radius: 34 },
-  barrage: { name: 'Loạt hỏa tiễn', cost: [150, 120, 120], icon: 'wave', rockets: [4, 6, 8], cooldown: 14 },
-  concuss: { name: 'Chấn động', cost: [130, 100, 100], icon: 'hourglass', stun: [0.3, 0.5, 0.7] },
-  mend: { name: 'Tự chữa thương', cost: [100, 80, 80], icon: 'heart', perSec: [4, 7, 10] },
-  thorns: { name: 'Giáp gai', cost: [110, 90, 90], icon: 'star', dmg: [5, 9, 14] },
-  cleave: { name: 'Chém lan', cost: [120, 100, 100], icon: 'wave', part: [0.4, 0.6, 0.8], radius: 16 },
-  knives: { name: 'Phi đao', cost: [110, 90, 90], icon: 'bow', dmg: [12, 20, 28], range: 70, cooldown: 2.5 },
+  poison: { name: 'Tên tẩm độc', cost: price(100, 80), icon: 'skull', dps: [3, 5, 8], time: 4 },
+  volley: { name: 'Loạt tiễn', cost: price(120, 100), icon: 'wave', targets: [3, 5, 7], cooldown: 8 },
+  headshot: { name: 'Phát chí mạng', cost: price(130, 110), icon: 'star', chance: [0.15, 0.25, 0.35], mult: 2.5 },
+  cripple: { name: 'Tên xuyên gân', cost: price(90, 70), icon: 'hourglass', time: [1, 1.75, 2.5], factor: 0.5 },
+  blizzard: { name: 'Bão tuyết', cost: price(150, 120), icon: 'wave', freeze: [1.2, 1.8, 2.4], radius: 60, cooldown: 12 },
+  shatter: { name: 'Băng vỡ', cost: price(120, 100), icon: 'star', part: [0.3, 0.5, 0.7], radius: 30 },
+  chain: { name: 'Sét lan', cost: price(140, 120), icon: 'wave', jumps: [1, 2, 3], part: 0.6, radius: 64 },
+  sunder: { name: 'Phá giáp', cost: price(110, 90), icon: 'shield', shred: [0.1, 0.18, 0.26] },
+  cluster: { name: 'Đạn chùm', cost: price(160, 130), icon: 'star', bomblets: [2, 3, 4], part: 0.4, scatter: 30, splash: 26 },
+  oil: { name: 'Dầu lửa', cost: price(140, 110), icon: 'fire', dps: [6, 10, 14], time: 4, radius: 34 },
+  barrage: { name: 'Loạt hỏa tiễn', cost: price(150, 120), icon: 'wave', rockets: [4, 6, 8], cooldown: 14 },
+  concuss: { name: 'Chấn động', cost: price(130, 100), icon: 'hourglass', stun: [0.3, 0.5, 0.7] },
+  mend: { name: 'Tự chữa thương', cost: price(100, 80), icon: 'heart', perSec: [4, 7, 10] },
+  thorns: { name: 'Giáp gai', cost: price(110, 90), icon: 'star', dmg: [5, 9, 14] },
+  cleave: { name: 'Chém lan', cost: price(120, 100), icon: 'wave', part: [0.4, 0.6, 0.8], radius: 16 },
+  knives: { name: 'Phi đao', cost: price(110, 90), icon: 'bow', dmg: [12, 20, 28], range: 70, cooldown: 2.5 },
 } as const
 
 export type SkillId = keyof typeof SKILLS

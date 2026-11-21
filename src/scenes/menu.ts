@@ -1,13 +1,15 @@
 import Phaser from 'phaser'
 import {
-  MAX_STARS, SCENE, fadeIn, isSwitching, levelUnlocked, resetProgress, save, sfx, startLevel, toggleMute, totalStars,
+  MAX_STARS, SCENE, bestStars, cycleDifficulty, fadeIn, hasProgress, isSwitching, levelUnlocked, resetProgress, save, sfx, startLevel,
+  toggleMute, totalStars,
   type MenuInit,
 } from '../app'
+import { DIFFICULTY } from '../data/difficulty'
 import { LEVELS, VIEW_W } from '../data/levels'
 import { frameCamera, onPixelScale, pixelScale, touchFirst } from '../display'
 import { BossBar } from '../ui/panels'
 import { GOLD, PARCHMENT_DIM, PARCHMENT_INK, label, wrapText } from '../ui/text'
-import { Cursor, HitBox, ICONS, RectButton, overClickable, panel, veil } from '../ui/widgets'
+import { Cursor, HitBox, ICONS, RectButton, overClickable, panel, setFrame, veil } from '../ui/widgets'
 import type { BattleScene } from './battle'
 
 type Screen = MenuInit['screen']
@@ -23,6 +25,9 @@ interface Card {
   root: Phaser.GameObjects.Container
   hit: HitBox
   open: boolean
+  levelId: string
+  /** the three star slots of an open card */
+  stars: Phaser.GameObjects.Image[]
 }
 
 /** Title screen and level select, drawn over a battle the bot is playing. */
@@ -35,6 +40,9 @@ export class MenuScene extends Phaser.Scene {
   private levels!: Phaser.GameObjects.Container
   private soundButton!: RectButton
   private cards: Card[] = []
+  private difficultyButton!: RectButton
+  private difficultyBlurb!: Phaser.GameObjects.Text
+  private starTotal!: Phaser.GameObjects.Text
   private resetButton: RectButton | null = null
   private resetArmedUntil = 0
 
@@ -99,7 +107,10 @@ export class MenuScene extends Phaser.Scene {
 
   private createLevels(): Phaser.GameObjects.Container {
     const root = this.add.container(0, 0)
-    root.add(label(this, VIEW_W / 2, 30, 'Chọn màn chơi', { size: 48, align: 'center', color: GOLD }))
+    root.add(label(this, VIEW_W / 2, 22, 'Chọn màn chơi', { size: 48, align: 'center', color: GOLD }))
+    this.difficultyButton = new RectButton(this, VIEW_W / 2 - 70, 76, 140, '', 'green', () => this.pressDifficulty(), root)
+    this.difficultyBlurb = label(this, VIEW_W / 2, 326, '', { align: 'center', alpha: 0.9 })
+    root.add(this.difficultyBlurb)
     const left = (VIEW_W - (CARD_W * LEVELS.length + CARD_GAP * (LEVELS.length - 1))) / 2
     LEVELS.forEach((level, i) => {
       const open = levelUnlocked(i)
@@ -113,10 +124,12 @@ export class MenuScene extends Phaser.Scene {
         card.add(label(this, CARD_W / 2, 68 + k * 15, line, { ...plain, color: PARCHMENT_INK }))
       })
       card.add(label(this, CARD_W / 2, 134, `${level.waves.length} đợt quái`, { ...plain, color: PARCHMENT_DIM }))
+      const stars: Phaser.GameObjects.Image[] = []
       if (open) {
-        const stars = save.stars[level.id] ?? 0
         for (let s = 0; s < 3; s++) {
-          card.add(this.add.image(CARD_W / 2 - 54 + s * 36, 158, ICONS, s < stars ? 'star' : 'star_empty').setOrigin(0, 0).setScale(2))
+          const star = this.add.image(CARD_W / 2 - 54 + s * 36, 158, ICONS, 'star_empty').setOrigin(0, 0).setScale(2)
+          card.add(star)
+          stars.push(star)
         }
       } else {
         card.add(this.add.image(CARD_W / 2 - 16, 156, ICONS, 'lock').setOrigin(0, 0).setScale(2))
@@ -136,11 +149,13 @@ export class MenuScene extends Phaser.Scene {
         },
         card,
       )
-      this.cards.push({ root: card, hit, open })
+      this.cards.push({ root: card, hit, open, levelId: level.id, stars })
     })
     new RectButton(this, VIEW_W / 2 - 50, 350, 100, 'Quay lại', 'red', () => this.show('title'), root)
-    root.add(label(this, left, 352, `Tổng số sao: ${totalStars()}/${MAX_STARS}`))
-    if (Object.keys(save.stars).length > 0 || save.tips.length > 0) {
+    this.starTotal = label(this, left, 352, '')
+    root.add(this.starTotal)
+    this.showDifficulty()
+    if (hasProgress()) {
       this.resetButton = new RectButton(this, left + CARD_W * LEVELS.length + CARD_GAP * (LEVELS.length - 1) - 120, 350, 120, 'Xóa tiến độ', 'red', () => this.pressReset(), root)
     }
     return root
@@ -153,6 +168,23 @@ export class MenuScene extends Phaser.Scene {
       card.root.setY(CARD_Y + 26).setAlpha(0)
       this.tweens.add({ targets: card.root, y: CARD_Y, alpha: 1, delay: 60 + i * 70, duration: 260, ease: 'Back.easeOut' })
     })
+  }
+
+  private pressDifficulty(): void {
+    cycleDifficulty()
+    this.showDifficulty()
+  }
+
+  /** Stars are kept apart for every difficulty: the cards show those of the chosen one. */
+  private showDifficulty(): void {
+    const def = DIFFICULTY[save.difficulty]
+    this.difficultyButton.setText(`Độ khó: ${def.name}`)
+    this.difficultyBlurb.setText(def.blurb)
+    this.starTotal.setText(`Tổng số sao: ${totalStars()}/${MAX_STARS}`)
+    for (const card of this.cards) {
+      const earned = bestStars(card.levelId)
+      card.stars.forEach((star, i) => setFrame(star, i < earned ? 'star' : 'star_empty'))
+    }
   }
 
   /** Wipes the save on the second press; the first one only asks. */

@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 import { MAX_STARS, save, showMenu, startLevel, toggleMute, totalStars } from '../app'
+import { DIFFICULTY } from '../data/difficulty'
 import { LEVELS, VIEW_H, VIEW_W } from '../data/levels'
 import type { Session } from '../session'
 import type { World } from '../sim/world'
@@ -186,7 +187,7 @@ export class ResultPanel {
         box.add(star)
         stars.push(star)
       }
-      box.add(label(scene, pw / 2, 120, `Mạng còn lại: ${w.lives}/${w.level.lives}`, plain))
+      box.add(label(scene, pw / 2, 120, `Mạng còn lại: ${w.lives}/${w.level.lives}  -  Độ khó: ${DIFFICULTY[w.difficulty].name}`, plain))
       if (finale) {
         // the win of this battle is already in the save when the sheet is built
         const total = totalStars()

@@ -3,7 +3,6 @@ import { atlasFrame, digits, hasAnim, sheet } from '../src/assets'
 import { ENEMIES } from '../src/data/enemies'
 import { LEVELS, MAP_COLS, MAP_ROWS, VIEW_H, VIEW_W } from '../src/data/levels'
 import { HERO, RANGE_SQUASH, TOWERS, TOWER_TYPES, towerSheet } from '../src/data/towers'
-import { Bot } from '../src/sim/bot'
 import { TILE, rasterizePaths, samplePath } from '../src/sim/path'
 import { World } from '../src/sim/world'
 
@@ -119,44 +118,4 @@ describe('level data', () => {
       })
     })
   }
-})
-
-function play(levelIndex: number, withBot: boolean): World {
-  const w = new World(LEVELS[levelIndex])
-  const bot = new Bot(w)
-  const dt = 1 / 60
-  for (let t = 0; t < 1500 && w.result === null; t += dt) {
-    if (withBot) bot.update(dt)
-    else if (w.canCallWave() && w.waveIndex === -1) w.callWave()
-    w.update(dt)
-  }
-  return w
-}
-
-describe('balance', () => {
-  it('an undefended kingdom falls on every level', () => {
-    for (let i = 0; i < LEVELS.length; i++) expect(play(i, false).result, LEVELS[i].id).toBe('lose')
-  })
-
-  it('a simple automatic player clears the first level almost untouched', () => {
-    const w = play(0, true)
-    expect(w.result).toBe('win')
-    expect(w.lives).toBeGreaterThanOrEqual(15)
-  })
-
-  it('the same player can still win the later levels, but pays for it', () => {
-    for (const i of [1, 2]) {
-      const w = play(i, true)
-      expect(w.result, LEVELS[i].id).toBe('win')
-      expect(w.lives, LEVELS[i].id).toBeLessThan(LEVELS[i].lives)
-    }
-  })
-
-  it('is deterministic for a given level', () => {
-    const a = play(0, true)
-    const b = play(0, true)
-    expect(a.lives).toBe(b.lives)
-    expect(a.gold).toBe(b.gold)
-    expect(a.kills).toBe(b.kills)
-  })
 })

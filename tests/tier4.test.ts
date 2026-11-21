@@ -169,6 +169,7 @@ describe('specialising a tower', () => {
     const invested = TOWERS.archer.cost[0] + TOWERS.archer.cost[1] + TOWERS.archer.cost[2] + SPECS.repeater.cost + costs[0] + costs[1] + costs[2]
     expect(t.invested).toBe(invested)
     expect(w.gold).toBe(9000 - invested)
+    w.callWave()
     w.sell(t)
     expect(w.gold).toBe(9000 - invested + Math.floor(invested * SELL_REFUND))
   })
@@ -208,12 +209,13 @@ describe('archer branches', () => {
     const t = specTower(w, 'marksman')
     expect(w.towerRange(t)).toBeGreaterThan(TOWERS.archer.range[2] + 40)
     const knight = w.spawnEnemy(ENEMIES.dark_knight, 0, MID)
-    w.damageEnemy(knight, 100, 'physical', MARKSMAN_PIERCE)
-    expect(knight.hp).toBeCloseTo(ENEMIES.dark_knight.hp - 100 * (1 - ENEMIES.dark_knight.armor * (1 - MARKSMAN_PIERCE)))
+    const through = 1 - ENEMIES.dark_knight.armor * (1 - MARKSMAN_PIERCE)
+    expect(w.damageEnemy(knight, 100, 'physical', MARKSMAN_PIERCE)).toBe(Math.floor(100 * through))
+    expect(knight.hp).toBe(ENEMIES.dark_knight.hp - Math.floor(100 * through))
     const hp = knight.hp
     run(w, 1.2)
     // one arrow, at least the minimum roll through half the armor
-    expect(hp - knight.hp).toBeGreaterThanOrEqual(SPECS.marksman.dmg[0] * (1 - ENEMIES.dark_knight.armor * (1 - MARKSMAN_PIERCE)) - 0.5)
+    expect(hp - knight.hp).toBeGreaterThanOrEqual(Math.floor(SPECS.marksman.dmg[0] * through))
   })
 
   it('a crippling arrow slows what it hits', () => {
@@ -276,7 +278,7 @@ describe('mage branches', () => {
     run(w, 1.6)
     expect(front.hp).toBeLessThan(ENEMIES.dark_knight.hp)
     expect(behind.hp).toBeLessThan(ENEMIES.dark_knight.hp)
-    expect(front.shred).toBeCloseTo(SKILLS.sunder.shred[2])
+    expect(front.armor).toBeCloseTo(ENEMIES.dark_knight.armor - SKILLS.sunder.shred[2])
   })
 
   it('sundered armor never drops below zero', () => {
@@ -284,7 +286,8 @@ describe('mage branches', () => {
     specTower(w, 'storm', [0, 3])
     const king = w.spawnEnemy(ENEMIES.ogre_king, 0, MID)
     run(w, 6)
-    expect(king.shred).toBe(ENEMIES.ogre_king.armor)
+    expect(king.armor).toBe(0)
+    expect(king.rawArmor).toBe(0)
     const hp = king.hp
     w.damageEnemy(king, 100, 'physical')
     expect(hp - king.hp).toBeCloseTo(100)

@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
-import { SCENE, fadeIn, isSwitching, nextDemo, recordWin, sfx, type BattleInit } from '../app'
+import { SCENE, fadeIn, isSwitching, nextDemo, recordWin, save, sfx, type BattleInit } from '../app'
+import { DEFAULT_DIFFICULTY } from '../data/difficulty'
 import { LEVELS, VIEW_H, VIEW_W } from '../data/levels'
 import { frameCamera, onPixelScale, pixelScale } from '../display'
 import { Session } from '../session'
@@ -64,10 +65,10 @@ export class BattleScene extends Phaser.Scene {
 
     if (this.demo) {
       this.session = null
-      this.world = new World(LEVELS[this.levelIndex])
+      this.world = new World(LEVELS[this.levelIndex], DEFAULT_DIFFICULTY)
       this.bot = new Bot(this.world)
     } else {
-      this.session = new Session(this.levelIndex, sfx, recordWin)
+      this.session = new Session(this.levelIndex, sfx, recordWin, save.difficulty)
       this.world = this.session.world
       this.bot = null
     }

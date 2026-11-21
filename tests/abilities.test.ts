@@ -100,6 +100,10 @@ describe('enemy abilities', () => {
     run(w, 0.1)
     expect(orc.enraged).toBe(true)
     expect(w.enemySpeed(orc)).toBeGreaterThan(calm * 1.5)
+    // the rage is baked into the factors once, nothing has to ask for it again
+    const rage = abilityOf(ENEMIES.berserker, 'enrage')
+    expect(orc.dmgFactor).toBe(rage?.dmg)
+    expect(orc.speedFactor).toBe(rage?.speed)
   })
 
   it('a troll grows its health back, but only while left alone', () => {
@@ -114,7 +118,7 @@ describe('enemy abilities', () => {
     // steady damage keeps the wound open
     const before = troll.hp
     for (let i = 0; i < 180; i++) {
-      w.damageEnemy(troll, 0.01, 'true')
+      w.damageEnemy(troll, 1, 'true')
       w.update(DT)
     }
     expect(troll.hp).toBeLessThan(before)

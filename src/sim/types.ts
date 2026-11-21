@@ -3,7 +3,11 @@ import type { EnemyDef } from '../data/enemies'
 import type { SpecId, TowerType } from '../data/towers'
 import type { PathData } from './path'
 
-export type DamageKind = 'physical' | 'magic' | 'true'
+/**
+ * physical is stopped by armor, explosion by half of it, magic by magic
+ * resistance and true damage by nothing.
+ */
+export type DamageKind = 'physical' | 'explosion' | 'magic' | 'true'
 export type Dir = 'side' | 'down' | 'up'
 
 export type EnemyState = 'walk' | 'blocked' | 'attack' | 'cast' | 'dying'
@@ -37,8 +41,16 @@ export interface Enemy {
   stunT: number
   /** seconds during which a new stun does not take */
   stunGuard: number
-  /** armor points stripped for good */
-  shred: number
+  /** armor right now, 0..1: the clamped rawArmor */
+  armor: number
+  /** armor before clamping, so effects that raise or lower it can be lifted in any order */
+  rawArmor: number
+  /** multiplier on the damage it deals */
+  dmgFactor: number
+  /** multiplier on the damage it takes */
+  takenFactor: number
+  /** multiplier on its walking speed, besides the timed slows and auras */
+  speedFactor: number
   /** seconds left of a speed aura, and its multiplier */
   hasteT: number
   hasteMult: number

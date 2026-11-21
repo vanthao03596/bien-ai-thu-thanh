@@ -1,4 +1,5 @@
 import type { Sfx } from './audio'
+import { DEFAULT_DIFFICULTY, type Difficulty } from './data/difficulty'
 import { LEVELS } from './data/levels'
 import type { Plot, SimEvent, Tower } from './sim/types'
 import { World } from './sim/world'
@@ -40,9 +41,10 @@ export class Session {
   constructor(
     readonly levelIndex: number,
     private readonly sfx: Sfx,
-    private readonly onWin: (levelId: string, stars: number) => void,
+    private readonly onWin: (levelId: string, stars: number, difficulty: Difficulty) => void,
+    difficulty: Difficulty = DEFAULT_DIFFICULTY,
   ) {
-    this.world = new World(LEVELS[levelIndex])
+    this.world = new World(LEVELS[levelIndex], difficulty)
   }
 
   /** The battle is running and accepts orders. */
@@ -81,7 +83,7 @@ export class Session {
     this.selection = NONE
     this.mode = 'normal'
     this.armed = null
-    if (w.result === 'win') this.onWin(w.level.id, w.stars)
+    if (w.result === 'win') this.onWin(w.level.id, w.stars, w.difficulty)
   }
 
   // ------------------------------------------------------------ commands

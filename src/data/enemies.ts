@@ -1,3 +1,5 @@
+import { DIFFICULTY, type Difficulty } from './difficulty'
+
 export type EnemyType =
   | 'goblin'
   | 'wolf'
@@ -46,10 +48,14 @@ export type EnemyAbility =
 
 export type AbilityKind = EnemyAbility['kind']
 
+/** Stats that can be set by hand for the easier difficulties. */
+export type EasedStat = 'hp' | 'speed' | 'armor' | 'magicRes' | 'lives'
+
 export interface EnemyDef {
   type: EnemyType
   name: string
   sheet: string
+  /** hit points on the hardest difficulty; the easier ones scale them down */
   hp: number
   /** pixels per second */
   speed: number
@@ -57,6 +63,7 @@ export interface EnemyDef {
   armor: number
   /** fraction of magic damage ignored, 0..1 */
   magicRes: number
+  /** bounty; follows the hit points alone (see bountyBand in sim/balance.ts) and is the same on every difficulty */
   gold: number
   /** lives removed when it reaches the gate */
   lives: number
@@ -70,6 +77,12 @@ export interface EnemyDef {
   height: number
   shadow: 'effects/shadow_small' | 'effects/shadow_medium' | 'effects/shadow_large'
   boss?: boolean
+  /**
+   * Hand-set values for [easy, normal] that replace the plain field there.
+   * Without an entry, hit points follow the health factor of the difficulty
+   * and everything else stays as written.
+   */
+  eased?: Partial<Record<EasedStat, readonly [number, number]>>
   abilities?: readonly EnemyAbility[]
   /** one line for the wave preview, for enemies that need a special answer */
   trait?: string
@@ -79,55 +92,58 @@ export interface EnemyDef {
   alpha?: number
 }
 
-// Hit points and bounties follow the suggestedStats shipped with each enemy sheet of the pack.
+// Hit points are written for the hardest difficulty. Bounties follow the hit points alone:
+// armor, resistance and abilities do not pay extra, the right tower is the answer to those.
 export const ENEMIES: Record<EnemyType, EnemyDef> = {
   goblin: {
     type: 'goblin', name: 'Yêu tinh', sheet: 'enemies/goblin',
-    hp: 20, speed: 36, armor: 0, magicRes: 0, gold: 3, lives: 1,
+    hp: 21, speed: 36, armor: 0, magicRes: 0, gold: 3, lives: 1,
     dmg: [2, 4], atkCd: 1.0, flying: false, radius: 6, height: 20, shadow: 'effects/shadow_small',
   },
   wolf: {
     type: 'wolf', name: 'Sói hoang', sheet: 'enemies/wolf',
-    hp: 35, speed: 60, armor: 0, magicRes: 0, gold: 5, lives: 1,
+    hp: 37, speed: 60, armor: 0, magicRes: 0, gold: 5, lives: 1,
     dmg: [3, 5], atkCd: 0.9, flying: false, radius: 8, height: 16, shadow: 'effects/shadow_medium',
   },
   skeleton: {
     type: 'skeleton', name: 'Bộ xương', sheet: 'enemies/skeleton',
-    hp: 60, speed: 30, armor: 0.2, magicRes: 0, gold: 8, lives: 1,
+    hp: 63, speed: 30, armor: 0.2, magicRes: 0, gold: 8, lives: 1,
     dmg: [4, 7], atkCd: 1.0, flying: false, radius: 6, height: 22, shadow: 'effects/shadow_small',
   },
   orc: {
     type: 'orc', name: 'Orc', sheet: 'enemies/orc',
-    hp: 80, speed: 27, armor: 0.2, magicRes: 0, gold: 10, lives: 1,
+    hp: 84, speed: 27, armor: 0.2, magicRes: 0, gold: 10, lives: 1,
     dmg: [6, 10], atkCd: 1.2, flying: false, radius: 7, height: 22, shadow: 'effects/shadow_medium',
   },
   bat: {
     type: 'bat', name: 'Dơi quỷ', sheet: 'enemies/bat',
-    hp: 30, speed: 48, armor: 0, magicRes: 0, gold: 6, lives: 1,
+    hp: 32, speed: 48, armor: 0, magicRes: 0, gold: 5, lives: 1,
     dmg: [0, 0], atkCd: 1, flying: true, radius: 6, height: 26, shadow: 'effects/shadow_small',
   },
   shaman: {
     type: 'shaman', name: 'Pháp sư bộ lạc', sheet: 'enemies/shaman',
-    hp: 50, speed: 26, armor: 0, magicRes: 0.6, gold: 12, lives: 1,
+    hp: 53, speed: 26, armor: 0, magicRes: 0.6, gold: 7, lives: 1,
     dmg: [3, 6], atkCd: 1.2, flying: false, radius: 6, height: 24, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'heal', amount: 26, radius: 64, cooldown: 5 }],
     trait: 'hồi máu cho quái xung quanh',
   },
   dark_knight: {
     type: 'dark_knight', name: 'Hắc kỵ sĩ', sheet: 'enemies/dark_knight',
-    hp: 180, speed: 21, armor: 0.65, magicRes: 0, gold: 20, lives: 2,
+    hp: 190, speed: 21, armor: 0.65, magicRes: 0, gold: 20, lives: 2,
     dmg: [14, 22], atkCd: 1.4, flying: false, radius: 7, height: 24, shadow: 'effects/shadow_medium',
+    trait: 'giáp dày, tên bắn gần như vô hại: cần phép hoặc pháo',
   },
   ogre: {
     type: 'ogre', name: 'Chằn tinh', sheet: 'enemies/ogre',
-    hp: 600, speed: 18, armor: 0, magicRes: 0, gold: 40, lives: 3,
+    hp: 630, speed: 18, armor: 0, magicRes: 0, gold: 40, lives: 3,
     dmg: [28, 42], atkCd: 1.6, flying: false, radius: 11, height: 36, shadow: 'effects/shadow_large',
   },
   demon_boss: {
     type: 'demon_boss', name: 'Quỷ vương', sheet: 'enemies/demon_boss',
-    hp: 3000, speed: 12, armor: 0.4, magicRes: 0.3, gold: 200, lives: 20,
+    hp: 3150, speed: 12, armor: 0.4, magicRes: 0.3, gold: 200, lives: 20,
     dmg: [70, 110], atkCd: 1.8, flying: false, radius: 15, height: 52, shadow: 'effects/shadow_large',
     boss: true,
+    eased: { hp: [2400, 2800] },
     abilities: [
       { kind: 'quake', radius: 54, dmg: [45, 70], cooldown: 8 },
       { kind: 'summon', type: 'bat', count: 3, cooldown: 13, casts: 8 },
@@ -137,7 +153,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   goblin_archer: {
     type: 'goblin_archer', name: 'Yêu tinh xạ thủ', sheet: 'enemies/goblin',
-    hp: 30, speed: 32, armor: 0, magicRes: 0, gold: 5, lives: 1,
+    hp: 32, speed: 32, armor: 0, magicRes: 0, gold: 5, lives: 1,
     dmg: [2, 4], atkCd: 1.0, flying: false, radius: 6, height: 20, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'ranged', range: 96, dmg: [6, 10], cooldown: 1.6 }],
     trait: 'bắn lính từ xa',
@@ -145,7 +161,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   ghost_wolf: {
     type: 'ghost_wolf', name: 'Sói ma', sheet: 'enemies/wolf',
-    hp: 36, speed: 50, armor: 0.8, magicRes: 0, gold: 8, lives: 1,
+    hp: 38, speed: 50, armor: 0.8, magicRes: 0, gold: 5, lives: 1,
     dmg: [3, 5], atkCd: 0.9, flying: false, radius: 8, height: 16, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'ethereal' }],
     trait: 'lướt xuyên qua lính, gần như miễn sát thương vật lý',
@@ -153,7 +169,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   berserker: {
     type: 'berserker', name: 'Orc cuồng nộ', sheet: 'enemies/orc',
-    hp: 140, speed: 26, armor: 0.1, magicRes: 0, gold: 14, lives: 1,
+    hp: 150, speed: 26, armor: 0.1, magicRes: 0, gold: 14, lives: 1,
     dmg: [8, 13], atkCd: 1.1, flying: false, radius: 7, height: 22, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'enrage', below: 0.5, speed: 1.9, dmg: 1.6 }],
     trait: 'nổi điên khi còn nửa máu: chạy nhanh, đánh đau',
@@ -161,7 +177,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   hexer: {
     type: 'hexer', name: 'Phù thủy yểm bùa', sheet: 'enemies/shaman',
-    hp: 80, speed: 24, armor: 0, magicRes: 0.6, gold: 18, lives: 1,
+    hp: 85, speed: 24, armor: 0, magicRes: 0.6, gold: 11, lives: 1,
     dmg: [3, 6], atkCd: 1.2, flying: false, radius: 6, height: 24, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'disable', range: 110, time: 4, cooldown: 9 }],
     trait: 'yểm bùa khóa tháp bắn',
@@ -169,7 +185,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   necromancer: {
     type: 'necromancer', name: 'Thầy gọi hồn', sheet: 'enemies/shaman',
-    hp: 110, speed: 22, armor: 0, magicRes: 0.5, gold: 25, lives: 2,
+    hp: 115, speed: 22, armor: 0, magicRes: 0.5, gold: 15, lives: 2,
     dmg: [4, 7], atkCd: 1.2, flying: false, radius: 6, height: 24, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'summon', type: 'skeleton', count: 2, cooldown: 8, casts: 4 }],
     trait: 'liên tục gọi bộ xương',
@@ -177,7 +193,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   brood_bat: {
     type: 'brood_bat', name: 'Dơi chúa', sheet: 'enemies/bat',
-    hp: 140, speed: 34, armor: 0, magicRes: 0, gold: 14, lives: 2,
+    hp: 150, speed: 34, armor: 0, magicRes: 0, gold: 14, lives: 2,
     dmg: [0, 0], atkCd: 1, flying: true, radius: 9, height: 38, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'split', type: 'bat', count: 3 }],
     trait: 'chết thì vỡ thành ba dơi quỷ',
@@ -185,7 +201,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   troll: {
     type: 'troll', name: 'Quỷ đầm lầy', sheet: 'enemies/ogre',
-    hp: 420, speed: 20, armor: 0, magicRes: 0, gold: 30, lives: 2,
+    hp: 440, speed: 20, armor: 0, magicRes: 0, gold: 30, lives: 2,
     dmg: [20, 30], atkCd: 1.5, flying: false, radius: 9, height: 30, shadow: 'effects/shadow_large',
     abilities: [{ kind: 'regen', perSec: 16, delay: 2.5 }],
     trait: 'tự hồi máu khi không bị đánh',
@@ -193,7 +209,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   warchief: {
     type: 'warchief', name: 'Tù trưởng Orc', sheet: 'enemies/orc',
-    hp: 380, speed: 22, armor: 0.35, magicRes: 0, gold: 35, lives: 3,
+    hp: 400, speed: 22, armor: 0.35, magicRes: 0, gold: 35, lives: 3,
     dmg: [16, 24], atkCd: 1.3, flying: false, radius: 9, height: 28, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'haste', radius: 72, speed: 1.3 }],
     trait: 'thúc quái xung quanh chạy nhanh hơn',
@@ -201,9 +217,10 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   ogre_king: {
     type: 'ogre_king', name: 'Chúa chằn', sheet: 'enemies/ogre',
-    hp: 1800, speed: 14, armor: 0.25, magicRes: 0, gold: 120, lives: 10,
+    hp: 1900, speed: 14, armor: 0.25, magicRes: 0, gold: 120, lives: 10,
     dmg: [45, 65], atkCd: 1.7, flying: false, radius: 15, height: 52, shadow: 'effects/shadow_large',
     boss: true,
+    eased: { hp: [1500, 1700] },
     abilities: [
       { kind: 'quake', radius: 48, dmg: [30, 45], cooldown: 7 },
       { kind: 'regen', perSec: 10, delay: 3 },
@@ -216,4 +233,33 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
 /** The ability of the given kind, if the enemy type has one. */
 export function abilityOf<K extends AbilityKind>(def: EnemyDef, kind: K): Extract<EnemyAbility, { kind: K }> | undefined {
   return def.abilities?.find((a): a is Extract<EnemyAbility, { kind: K }> => a.kind === kind)
+}
+
+const EASED_STATS: readonly EasedStat[] = ['hp', 'speed', 'armor', 'magicRes', 'lives']
+
+function easeEnemy(def: EnemyDef, difficulty: Difficulty): EnemyDef {
+  const out: EnemyDef = { ...def, hp: Math.max(1, Math.round(def.hp * DIFFICULTY[difficulty].hp)) }
+  const index = difficulty === 'easy' ? 0 : 1
+  for (const stat of EASED_STATS) {
+    const byHand = def.eased?.[stat]
+    if (byHand) out[stat] = byHand[index]
+  }
+  return out
+}
+
+const eased = new Map<Difficulty, Record<EnemyType, EnemyDef>>()
+
+/**
+ * The enemy table of a difficulty. The difficulty is baked into the data once,
+ * when a battle starts, so the fighting code never has to ask for it.
+ */
+export function enemiesFor(difficulty: Difficulty): Record<EnemyType, EnemyDef> {
+  if (difficulty === 'hard') return ENEMIES
+  let table = eased.get(difficulty)
+  if (!table) {
+    table = { ...ENEMIES }
+    for (const def of Object.values(ENEMIES)) table[def.type] = easeEnemy(def, difficulty)
+    eased.set(difficulty, table)
+  }
+  return table
 }
