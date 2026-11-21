@@ -1,25 +1,40 @@
 import '@fontsource/vt323/latin-400.css'
 import '@fontsource/vt323/latin-ext-400.css'
 import '@fontsource/vt323/vietnamese-400.css'
-import { loadImages } from './assets'
-import { Game } from './game'
-import { FONT_FAMILY } from './gfx'
+import Phaser from 'phaser'
+import { VIEW_H, VIEW_W } from './data/levels'
+import { watchPixelScale, windowPixelScale } from './display'
+import { BattleScene } from './scenes/battle'
+import { BootScene } from './scenes/boot'
+import { HudScene } from './scenes/hud'
+import { MenuScene } from './scenes/menu'
+import { FONT_FAMILY, refreshLabels } from './ui/text'
 
 async function boot(): Promise<void> {
-  const canvas = document.getElementById('game')
-  if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Missing <canvas id="game">')
-
-  // the font must be ready before the first frame, otherwise canvas text falls back to monospace
-  const fonts = Promise.all([
+  // the font must be ready before the first label is rasterised, otherwise it falls back to monospace
+  await Promise.all([
     document.fonts.load(`16px ${FONT_FAMILY}`, 'Biên Ải'),
     document.fonts.load(`16px ${FONT_FAMILY}`, 'Thủ Thành ế ợ ư'),
   ]).catch(() => undefined)
-  await Promise.all([loadImages(), fonts])
 
-  const game = new Game(canvas)
-  game.start()
-  if (import.meta.env.DEV) (window as unknown as { __game?: Game }).__game = game
-  canvas.focus()
+  const scale = windowPixelScale()
+  const game = new Phaser.Game({
+    type: Phaser.WEBGL,
+    parent: 'app',
+    width: VIEW_W * scale,
+    height: VIEW_H * scale,
+    backgroundColor: '#1d1322',
+    title: 'Biên Ải - Thủ Thành Pixel',
+    // nearest-neighbour textures and no multisampling; positions are snapped by the game itself
+    pixelArt: true,
+    disableContextMenu: true,
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    // render order: the battlefield, then whichever of the two overlays is running
+    scene: [BootScene, BattleScene, MenuScene, HudScene],
+  })
+  watchPixelScale(game)
+  game.scale.on(Phaser.Scale.Events.RESIZE, () => refreshLabels(Math.round(game.scale.width / VIEW_W)))
+  if (import.meta.env.DEV) (window as unknown as { __game?: Phaser.Game }).__game = game
 }
 
 boot().catch((err: unknown) => {

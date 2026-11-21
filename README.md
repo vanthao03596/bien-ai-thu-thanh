@@ -1,7 +1,7 @@
 # Biên Ải - Thủ Thành Pixel
 
 Game thủ thành (tower defense) chạy trên trình duyệt, dựng hoàn toàn từ bộ sprite trong `td_pixel_assets/`.
-Viết bằng TypeScript + Canvas 2D, không dùng game engine. Bộ asset được giữ nguyên, game đọc thẳng file PNG và JSON trong đó.
+Viết bằng TypeScript trên [Phaser 4](https://phaser.io) (renderer WebGL). Bộ asset được giữ nguyên, Phaser nạp thẳng file PNG và JSON trong đó.
 
 ## Chạy game
 
@@ -13,7 +13,7 @@ npm run dev        # mở http://localhost:5173
 Các lệnh khác:
 
 ```
-npm test           # 55 bài test cho đường đi, cơ chế trận đấu, dữ liệu màn chơi và cân bằng
+npm test           # 71 bài test cho đường đi, cơ chế trận đấu, phiên chơi, dữ liệu màn chơi và cân bằng
 npm run build      # kiểm tra kiểu rồi đóng gói vào dist/ (đặt lên host tĩnh nào cũng chạy)
 npm run preview    # chạy thử bản dist/
 ```
@@ -25,7 +25,8 @@ npm run preview    # chạy thử bản dist/
 - Bấm vào tướng (hoặc phím `H`) rồi bấm vào bản đồ để ra lệnh di chuyển.
 - Hai phép ở góc dưới trái: Mưa lửa (`1`) và Viện binh (`2`).
 - `Space` tạm dừng, `F` tua nhanh x2, chuột phải hoặc `Esc` để hủy, `M` tắt tiếng.
-- Trên màn hình cảm ứng: chạm lần đầu để xem thông tin, chạm lần nữa để xác nhận.
+- Lăn chuột (hoặc phím `+` / `-`) để phóng to, thu nhỏ bản đồ. Khi đang phóng to, giữ chuột trái và kéo để di chuyển khung nhìn.
+- Trên màn hình cảm ứng: chạm lần đầu để xem thông tin, chạm lần nữa để xác nhận. Dùng hai ngón để phóng to, một ngón kéo để di chuyển.
 
 Bốn loại tháp, mỗi loại ba cấp:
 
@@ -42,19 +43,37 @@ Giữ được từ 18/20 mạng trở lên là ba sao, từ 8 mạng là hai sa
 
 ```
 src/
-  assets.ts        đọc JSON của bộ asset, nạp ảnh
-  gfx.ts           lớp vẽ: sprite, atlas, panel 9-slice, font số, chữ
-  game.ts          vòng lặp, màn hình, HUD, vòng chọn tháp, điều khiển
-  audio.ts         hiệu ứng âm thanh tổng hợp bằng WebAudio (bộ asset không có âm thanh)
+  main.ts          cấu hình Phaser.Game, nạp font rồi khởi động
+  app.ts           trạng thái dùng chung (âm thanh, tiến độ) và chuyển cảnh có fade
+  display.ts       tỉ lệ pixel nguyên: canvas luôn là bội số của 768x432, camera zoom theo
+  assets.ts        đọc JSON của bộ asset, lập danh sách file cho loader của Phaser
+  session.ts       một lượt chơi: mô phỏng + lựa chọn của người chơi, không phụ thuộc Phaser
+  audio.ts         hiệu ứng âm thanh tổng hợp bằng WebAudio, phát qua sound manager của Phaser
   save.ts          lưu số sao
   data/            chỉ số quái, tháp, tướng, phép và ba màn chơi
   sim/             mô phỏng trận đấu, không phụ thuộc trình duyệt nên test được bằng Node
     world.ts       quái, lính, tháp, đạn, đợt quái, phép
     path.ts        đường đi bo góc, tô ô đường
     bot.ts         người chơi tự động (màn tiêu đề và test cân bằng)
-  render/          dựng nền tile + rải cây cỏ, vẽ cảnh theo chiều sâu
+  scenes/
+    boot.ts        nạp asset kèm thanh tiến độ, đăng ký animation và font số
+    battle.ts      chiến trường: chạy mô phỏng, camera (zoom, kéo, rung), filter
+    hud.ts         giao diện trong trận và toàn bộ thao tác của người chơi
+    menu.ts        màn tiêu đề và chọn màn, vẽ đè lên trận đấu do bot chơi
+  view/
+    battle-view.ts sprite của mọi thứ trên sân, đồng bộ từ mô phỏng mỗi frame
+    map.ts         dựng nền tile thành texture, rải cây cỏ
+    fx.ts          particle và ánh sáng cộng màu
+  ui/              chữ, số bitmap, nút, panel, vòng chọn tháp, bảng tạm dừng và kết quả
 tests/             test bằng Vitest
 ```
+
+Mô phỏng (`sim/`) vẫn là nguồn sự thật duy nhất. Lớp hiển thị chỉ đọc trạng thái mỗi frame rồi đặt vị trí,
+khung hình và độ sâu (`setDepth(y)`) cho sprite, và tự thêm phần thuần hình ảnh: particle, ánh sáng,
+nháy trắng khi trúng đòn, viền sáng quanh tháp đang chọn, rung camera khi pháo nổ.
+
+Bản đồ hiện vừa khít màn hình ở mức zoom 1. Camera đã hỗ trợ cuộn; để có bản đồ lớn hơn màn hình cần thêm
+kích thước riêng cho từng màn (hiện là hằng số `MAP_COLS` / `MAP_ROWS`) và nới giới hạn khung nhìn trong `scenes/battle.ts`.
 
 ## Thêm màn chơi
 

@@ -2,13 +2,6 @@ import type { SimEvent } from './sim/types'
 
 export type SoundName = SimEvent | 'click' | 'deny' | 'select'
 
-type AudioCtor = typeof AudioContext
-
-function audioCtor(): AudioCtor | null {
-  const w = window as unknown as { AudioContext?: AudioCtor; webkitAudioContext?: AudioCtor }
-  return w.AudioContext ?? w.webkitAudioContext ?? null
-}
-
 /** Minimum seconds between two plays of the same sound, so volleys do not turn into noise. */
 const MIN_GAP: Partial<Record<SoundName, number>> = {
   arrow: 0.07,
@@ -31,25 +24,21 @@ export class Sfx {
   private noiseBuf: AudioBuffer | null = null
   private readonly last = new Map<SoundName, number>()
 
-  /** Must be called from a user gesture before anything can play. */
-  unlock(): void {
-    if (!this.ctx) {
-      const Ctor = audioCtor()
-      if (!Ctor) return
-      try {
-        this.ctx = new Ctor()
-      } catch {
-        return
-      }
-      this.master = this.ctx.createGain()
-      this.master.gain.value = 0.5
-      this.master.connect(this.ctx.destination)
-      const len = Math.floor(this.ctx.sampleRate * 0.6)
-      this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate)
-      const data = this.noiseBuf.getChannelData(0)
-      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
-    }
-    if (this.ctx.state === 'suspended') void this.ctx.resume()
+  /**
+   * Plugs the synthesiser into an audio graph. The game passes Phaser's own
+   * context and master node, so the sound manager's unlock, mute and
+   * pause-on-blur handling apply to these effects too.
+   */
+  attach(ctx: AudioContext, destination: AudioNode): void {
+    if (this.ctx === ctx) return
+    this.ctx = ctx
+    this.master = ctx.createGain()
+    this.master.gain.value = 0.5
+    this.master.connect(destination)
+    const len = Math.floor(ctx.sampleRate * 0.6)
+    this.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate)
+    const data = this.noiseBuf.getChannelData(0)
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
   }
 
   private tone(type: OscillatorType, f0: number, f1: number, dur: number, gain: number, delay = 0): void {

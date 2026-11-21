@@ -1,6 +1,7 @@
 // Asset registry: reads every sprite sheet description (JSON) of the pixel pack at
-// build time and loads the matching PNG files at runtime. The pack itself stays
-// untouched inside td_pixel_assets/.
+// build time. The simulation uses it for animation timing, and the boot scene hands
+// the same descriptions to the Phaser loader together with the PNG urls. The pack
+// itself stays untouched inside td_pixel_assets/.
 
 export interface Point {
   x: number
@@ -19,6 +20,8 @@ export interface AnimDef {
   frames: number
   fps: number
   loop: boolean
+  /** texture frame name of every frame, in play order */
+  names: string[]
   hitFrame?: number
   releaseFrame?: number
   spawnFrame?: number
@@ -91,6 +94,7 @@ function keyOf(path: string): string {
 
 const sheets = new Map<string, Sheet>()
 const atlases = new Map<string, Atlas>()
+const rawJson = new Map<string, Record<string, unknown>>()
 let digitFont: DigitFont | null = null
 
 function parseSheet(key: string, json: Record<string, unknown>): Sheet {
@@ -100,11 +104,15 @@ function parseSheet(key: string, json: Record<string, unknown>): Sheet {
   const rawAnims = isRecord(json.animations) ? json.animations : {}
   for (const [name, raw] of Object.entries(rawAnims)) {
     if (!isRecord(raw)) continue
+    const frames = Math.max(1, num(raw.frames, 1))
+    const listed = Array.isArray(raw.frameNames) ? raw.frameNames.filter((n): n is string => typeof n === 'string') : []
+    const base = key.slice(key.lastIndexOf('/') + 1)
     anims[name] = {
       row: num(raw.row),
-      frames: Math.max(1, num(raw.frames, 1)),
+      frames,
       fps: Math.max(1, num(raw.fps, 1)),
       loop: raw.loop === true,
+      names: listed.length === frames ? listed : Array.from({ length: frames }, (_, i) => `${base}_${name}_${i}`),
       hitFrame: optNum(raw.hitFrame),
       releaseFrame: optNum(raw.releaseFrame),
       spawnFrame: optNum(raw.spawnFrame),
@@ -144,6 +152,7 @@ function parseAtlas(key: string, source: Record<string, unknown>): Atlas {
 for (const [path, json] of Object.entries(jsonModules)) {
   if (!isRecord(json)) continue
   const key = keyOf(path)
+  rawJson.set(key, json)
   if (isRecord(json.animations) && isRecord(json.meta)) {
     sheets.set(key, parseSheet(key, json))
   } else if (isRecord(json.tiles)) {
@@ -214,33 +223,44 @@ export function markerTime(a: AnimDef): number {
   return f / a.fps
 }
 
-// ---------------------------------------------------------------- images
-
-const images = new Map<string, HTMLImageElement>()
-
-export function image(key: string): HTMLImageElement {
-  const img = images.get(key)
-  if (!img) throw new Error(`Image not loaded: ${key}`)
-  return img
+/** Texture frame name shown t seconds after an animation started. */
+export function frameNameAt(key: string, name: string, t: number): string {
+  const a = anim(key, name)
+  return a.names[frameAt(a, t)]
 }
 
-export async function loadImages(onProgress?: (done: number, total: number) => void): Promise<void> {
-  const entries = Object.entries(imageUrls)
-  let done = 0
-  await Promise.all(
-    entries.map(
-      ([path, url]) =>
-        new Promise<void>((resolve, reject) => {
-          const img = new Image()
-          img.onload = () => {
-            images.set(keyOf(path), img)
-            done += 1
-            onProgress?.(done, entries.length)
-            resolve()
-          }
-          img.onerror = () => reject(new Error(`Failed to load ${path}`))
-          img.src = url
-        }),
-    ),
-  )
+// ---------------------------------------------------------------- loader manifest
+
+export interface AssetFile {
+  key: string
+  url: string
+  /** TexturePacker style description for the Phaser atlas loader; null for a plain image */
+  atlas: Record<string, unknown> | null
+}
+
+function framesOnly(a: Atlas): Record<string, unknown> {
+  const frames: Record<string, unknown> = {}
+  for (const [name, r] of Object.entries(a.frames)) frames[name] = { frame: { x: r.x, y: r.y, w: r.w, h: r.h } }
+  return { frames }
+}
+
+/**
+ * Everything the game loads at boot. Sheets and the prop atlas go to Phaser exactly
+ * as the pack describes them, pivots included, so sprites anchor at their feet.
+ * UI atlases and tiles are placed by their top-left corner, so they are passed
+ * without pivots.
+ */
+export function assetFiles(): AssetFile[] {
+  const files: AssetFile[] = []
+  for (const [path, url] of Object.entries(imageUrls)) {
+    const key = keyOf(path)
+    const raw = rawJson.get(key)
+    const a = atlases.get(key)
+    let atlasData: Record<string, unknown> | null = null
+    if (sheets.has(key) && raw) atlasData = raw
+    else if (a) atlasData = key.startsWith('props/') && raw ? raw : framesOnly(a)
+    else if (digitFont?.key !== key) continue
+    files.push({ key, url, atlas: atlasData })
+  }
+  return files
 }

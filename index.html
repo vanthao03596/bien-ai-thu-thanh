@@ -7,12 +7,14 @@
     <title>Biên Ải - Thủ Thành Pixel</title>
     <style>
       html, body { margin: 0; height: 100%; background: #1d1322; overflow: hidden; }
-      body { display: flex; align-items: center; justify-content: center; touch-action: none; }
-      canvas { display: block; image-rendering: auto; cursor: none; outline: none; }
+      body { touch-action: none; }
+      #app { position: fixed; inset: 0; }
+      /* the backing store is a whole multiple of 768x432; let the browser smooth the final fit */
+      #app canvas { display: block; image-rendering: auto !important; outline: none; }
     </style>
   </head>
   <body>
-    <canvas id="game" tabindex="0"></canvas>
+    <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

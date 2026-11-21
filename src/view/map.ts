@@ -1,4 +1,5 @@
-import { atlasFrame, image, type Point, type Rect } from '../assets'
+import Phaser from 'phaser'
+import { atlasFrame, type Point, type Rect } from '../assets'
 import { MAP_COLS, MAP_ROWS, VIEW_H, VIEW_W, type LevelDef } from '../data/levels'
 import { TILE, rasterizePaths } from '../sim/path'
 
@@ -50,15 +51,22 @@ function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
 
+function sourceImage(scene: Phaser.Scene, key: string): CanvasImageSource {
+  const img = scene.textures.get(key).getSourceImage()
+  if (img instanceof HTMLImageElement || img instanceof HTMLCanvasElement) return img
+  throw new Error(`Texture ${key} has no drawable source`)
+}
+
 /**
- * Static scenery of a level: the tile ground (pre-rendered once per water
+ * Static scenery of a level: the tile ground (baked into one texture per water
  * frame) and the list of props that take part in depth sorting.
  */
 export class MapView {
   readonly level: LevelDef
   readonly props: MapProp[] = []
   readonly spawnPoints: Point[]
-  private readonly ground: HTMLCanvasElement[] = []
+  /** number of ground textures; more than one when the level has animated water */
+  readonly groundFrames: number
   private readonly pathGrid: boolean[]
   private readonly waterGrid: boolean[]
 
@@ -74,8 +82,7 @@ export class MapView {
       }
     }
     this.spawnPoints = level.paths.map((wp) => ({ x: wp[0][0] * TILE, y: wp[0][1] * TILE }))
-    const frames = level.water.length > 0 ? WATER_FRAMES : 1
-    for (let f = 0; f < frames; f++) this.ground.push(this.renderGround(f))
+    this.groundFrames = level.water.length > 0 ? WATER_FRAMES : 1
     this.placeProps()
   }
 
@@ -90,16 +97,29 @@ export class MapView {
     return this.pathGrid[r * MAP_COLS + c] || this.waterGrid[r * MAP_COLS + c]
   }
 
-  private renderGround(waterFrame: number): HTMLCanvasElement {
-    const canvas = document.createElement('canvas')
-    canvas.width = MAP_COLS * TILE
-    canvas.height = MAP_ROWS * TILE
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas 2D is not available')
+  /**
+   * Bakes the tile ground into canvas textures, one per water frame, and returns
+   * their keys. The result only depends on the level, so it is built once and reused.
+   */
+  groundTextures(scene: Phaser.Scene): string[] {
+    const keys: string[] = []
+    for (let f = 0; f < this.groundFrames; f++) {
+      const key = `ground/${this.level.id}/${f}`
+      keys.push(key)
+      if (scene.textures.exists(key)) continue
+      const tex = scene.textures.createCanvas(key, MAP_COLS * TILE, MAP_ROWS * TILE)
+      if (!tex) throw new Error(`Could not create the ground texture ${key}`)
+      this.paintGround(scene, tex.getContext(), f)
+      tex.refresh()
+    }
+    return keys
+  }
+
+  private paintGround(scene: Phaser.Scene, ctx: CanvasRenderingContext2D, waterFrame: number): void {
     const rng = mulberry32(this.level.seed)
-    const pathImg = image('tiles/terrain_path')
-    const waterImg = image('tiles/terrain_water')
-    const drawTile = (img: HTMLImageElement, key: string, name: string, c: number, r: number): void => {
+    const pathImg = sourceImage(scene, 'tiles/terrain_path')
+    const waterImg = sourceImage(scene, 'tiles/terrain_water')
+    const drawTile = (img: CanvasImageSource, key: string, name: string, c: number, r: number): void => {
       const f = atlasFrame(key, name)
       ctx.drawImage(img, f.x, f.y, f.w, f.h, c * TILE, r * TILE, TILE, TILE)
     }
@@ -126,17 +146,13 @@ export class MapView {
     }
     // bridges are flat ground decals: units walk over them
     const bridge = atlasFrame('props/props_static', 'bridge')
+    const propsImg = sourceImage(scene, 'props/props_static')
     for (const [bx, by] of this.level.bridges) {
       ctx.drawImage(
-        image('props/props_static'), bridge.x, bridge.y, bridge.w, bridge.h,
+        propsImg, bridge.x, bridge.y, bridge.w, bridge.h,
         Math.round(bx * TILE - bridge.w / 2), Math.round(by * TILE - bridge.h / 2), bridge.w, bridge.h,
       )
     }
-    return canvas
-  }
-
-  groundAt(time: number): HTMLCanvasElement {
-    return this.ground[Math.floor(time * 4) % this.ground.length]
   }
 
   // ------------------------------------------------------------ scenery
