@@ -1,6 +1,6 @@
 import type { Point } from '../assets'
 import type { EnemyDef } from '../data/enemies'
-import type { TowerType } from '../data/towers'
+import type { SpecId, TowerType } from '../data/towers'
 import type { PathData } from './path'
 
 export type DamageKind = 'physical' | 'magic' | 'true'
@@ -29,7 +29,34 @@ export interface Enemy {
   cd: number
   hitDone: boolean
   slowT: number
-  healCd: number
+  /** speed multiplier while slowT runs */
+  slowFactor: number
+  poisonT: number
+  poisonDps: number
+  /** seconds left frozen in place */
+  stunT: number
+  /** seconds during which a new stun does not take */
+  stunGuard: number
+  /** armor points stripped for good */
+  shred: number
+  /** seconds left of a speed aura, and its multiplier */
+  hasteT: number
+  hasteMult: number
+  enraged: boolean
+  /** seconds since something last hurt it */
+  hurtT: number
+  /** battle time of the last direct hit (not poison or fire), for the hit flash */
+  hitAt: number
+  /** one cooldown and one remaining-casts counter per entry of def.abilities */
+  abilityCd: number[]
+  castsLeft: number[]
+  /** index of the ability being cast, or -1 */
+  casting: number
+  /** what the current cast is aimed at */
+  aim: Soldier | null
+  hex: Tower | null
+  /** raised by another enemy: pays no bounty */
+  summoned: boolean
   age: number
   removed: boolean
 }
@@ -68,6 +95,10 @@ export interface Soldier {
   specialCd: number
   /** hero only: walking to a commanded spot, ignoring enemies on the way */
   forced: boolean
+  /** the barracks that trained the unit */
+  owner: Tower | null
+  /** seconds until the next thrown knife */
+  throwCd: number
   removed: boolean
 }
 
@@ -104,6 +135,14 @@ export interface Tower {
   plot: Plot
   type: TowerType
   level: number
+  /** fourth tier, chosen once the tower reached its top level */
+  spec: SpecId | null
+  /** rank of the two skills of the specialisation, 0 to 3 */
+  skills: [number, number]
+  /** seconds until each timed skill fires again */
+  skillCd: [number, number]
+  /** seconds left under a hex: the tower does not shoot */
+  silenceT: number
   x: number
   y: number
   invested: number
@@ -124,7 +163,27 @@ export interface Tower {
   doorSpawned: boolean
 }
 
-export type ProjectileKind = 'arrow' | 'bolt' | 'bomb' | 'fireball' | 'heal'
+export type ProjectileKind = 'arrow' | 'bolt' | 'bomb' | 'fireball' | 'heal' | 'rocket'
+
+/** Extras a shot carries from the skills of its tower. */
+export interface HitMods {
+  slow?: { factor: number; time: number }
+  poison?: { dps: number; time: number }
+  /** seconds of stun for everything hit */
+  stun?: number
+  /** armor points stripped from the target */
+  shred?: number
+  /** fraction of armor ignored */
+  pierce?: number
+  /** further enemies a bolt jumps to */
+  chain?: number
+  /** fraction of the damage dealt to enemies around the target of a bolt */
+  shatter?: number
+  /** bomblets thrown out by the blast */
+  cluster?: number
+  /** fire left where the bomb lands */
+  burn?: { dps: number; time: number; radius: number }
+}
 
 export interface Projectile {
   kind: ProjectileKind
@@ -135,6 +194,8 @@ export interface Projectile {
   tx: number
   ty: number
   target: Enemy | null
+  /** enemy shots fly at a soldier instead */
+  soldier: Soldier | null
   /** negative while the projectile is still waiting to launch */
   t: number
   dur: number
@@ -142,9 +203,21 @@ export interface Projectile {
   dmg: number
   dmgKind: DamageKind
   splash: number
-  slow: boolean
+  /** blasts also catch flying enemies */
+  hitsAir: boolean
+  mods: HitMods
   angle: number
   removed: boolean
+}
+
+/** A patch of burning ground. */
+export interface Zone {
+  x: number
+  y: number
+  r: number
+  dps: number
+  t: number
+  life: number
 }
 
 export type EffectLayer = 'ground' | 'top'
@@ -192,7 +265,14 @@ export type SimEvent =
   | 'leak'
   | 'build'
   | 'upgrade'
+  | 'specialize'
+  | 'skill'
   | 'sell'
+  | 'freeze'
+  | 'silence'
+  | 'quake'
+  | 'summon'
+  | 'enrage'
   | 'wave'
   | 'coin'
   | 'heal'

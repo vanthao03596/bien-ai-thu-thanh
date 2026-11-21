@@ -152,6 +152,7 @@ export class RoundButton {
   readonly hit: HitBox
   private readonly face: Phaser.GameObjects.Image
   private readonly glyph: Phaser.GameObjects.Image | null
+  private glyphName: string
   private disabled = false
   private active = false
 
@@ -167,6 +168,7 @@ export class RoundButton {
     this.root = adopt(parent, scene.add.container(x, y))
     this.face = sprite(scene, BUTTONS, `btn_${name}_normal`, 0, 0, this.root)
     this.glyph = opts.icon ? icon(scene, opts.icon, 8, 8, this.root) : null
+    this.glyphName = opts.icon ?? ''
     this.hit = new HitBox(
       scene, 0, 0, 32, 32,
       {
@@ -185,6 +187,15 @@ export class RoundButton {
       this.disabled = disabled
       this.active = active
       this.render()
+    }
+    return this
+  }
+
+  /** Swaps the icon of a button that was created with one. */
+  setIcon(name: string): this {
+    if (this.glyph && name !== this.glyphName) {
+      this.glyphName = name
+      this.glyph.setFrame(name)
     }
     return this
   }

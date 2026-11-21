@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import { anim, frameNameAt, sheet } from '../assets'
-import { RANGE_SQUASH, towerSheet } from '../data/towers'
-import type { Effect, Enemy, FloatText, Plot, Projectile, RallyFlag, Soldier, Tower } from '../sim/types'
+import { RANGE_SQUASH, SPECS, towerSheet } from '../data/towers'
+import type { Effect, Enemy, FloatText, Plot, Projectile, RallyFlag, Soldier, Tower, Zone } from '../sim/types'
 import { BUILD_TIME, type World } from '../sim/world'
 import { Digits, digitsWidth } from '../ui/text'
 import { FX_GLOW, Fx } from './fx'
@@ -25,6 +25,21 @@ const DEPTH = {
 
 const HUD_ATLAS = 'ui/hud'
 const SLOW_TINT = 0xa9c8ff
+const FROZEN_TINT = 0x7fd0ff
+const POISON_TINT = 0xa6e884
+const RAGE_TINT = 0xff7a66
+const HEXED_TINT = 0x8a86a8
+const PLAIN = 0xffffff
+/** flames of one burning patch: offsets as fractions of its radius */
+const FLAME_SPOTS: readonly (readonly [number, number])[] = [[0, 0], [-0.6, -0.25], [0.6, -0.2], [-0.3, 0.5], [0.4, 0.45]]
+
+/** Multiplies two tints channel by channel, so a status colour shows on top of a variant colour. */
+function mixTint(a: number, b: number): number {
+  if (a === PLAIN) return b
+  if (b === PLAIN) return a
+  const ch = (shift: number): number => Math.round((((a >> shift) & 0xff) * ((b >> shift) & 0xff)) / 255)
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0)
+}
 const SELECT_COLOR = 0xfff07a
 /** effect sheets that also glow: drawn a second time with additive blending */
 const LUMINOUS: Record<string, number> = {
@@ -124,15 +139,21 @@ interface UnitView {
   rune: Sprite | null
   bar: HpBar | null
   lastHp: number
+  /** simulation time of the last hit that already flashed */
+  lastHit: number
   /** seconds of white hit flash left */
   flash: number
-  tint: 'none' | 'flash' | 'slow'
+  /** colour currently applied to the body; -1 while it is filled white */
+  tint: number
   dying: boolean
 }
 
 interface TowerView {
   body: Image
   units: Image[]
+  /** padlock shown while the tower is hexed */
+  lock: Image | null
+  tint: number
   built: boolean
 }
 
@@ -190,6 +211,7 @@ export class BattleView {
   private readonly effects: Views<Effect, EffectView>
   private readonly floats: Views<FloatText, FloatView>
   private readonly flags: Views<RallyFlag, Sprite>
+  private readonly zones: Views<Zone, Image[]>
 
   private glowTarget: Image | null = null
 
@@ -225,15 +247,20 @@ export class BattleView {
       .setVisible(false)
 
     this.towers = new Views<Tower, TowerView>(
-      (t) => ({ body: add.image(t.x, t.y, 'towers/construction'), units: [], built: false }),
+      (t) => ({ body: add.image(t.x, t.y, 'towers/construction'), units: [], lock: null, tint: PLAIN, built: false }),
       (v) => {
         if (this.glowTarget === v.body) this.glowTarget = null
         v.body.destroy()
+        v.lock?.destroy()
         for (const u of v.units) u.destroy()
       },
     )
     this.enemies = new Views<Enemy, UnitView>(
-      (e) => this.makeUnit(e.def.sheet, e.def.shadow, e.hp),
+      (e) => {
+        const v = this.makeUnit(e.def.sheet, e.def.shadow, e.hp)
+        if (e.def.scale !== undefined) v.body.setScale(e.def.scale)
+        return v
+      },
       (v) => this.dropUnit(v),
     )
     this.soldiers = new Views<Soldier, UnitView>(
@@ -265,6 +292,16 @@ export class BattleView {
     this.flags = new Views<RallyFlag, Sprite>(
       (f) => add.sprite(Math.round(f.x), Math.round(f.y), 'ui/rally_flag').setDepth(f.y),
       (v) => v.destroy(),
+    )
+    this.zones = new Views<Zone, Image[]>(
+      (z) =>
+        FLAME_SPOTS.map(([fx, fy]) => {
+          const y = Math.round(z.y + fy * z.r * RANGE_SQUASH)
+          return add.image(Math.round(z.x + fx * z.r), y, 'effects/flame').setDepth(y)
+        }),
+      (v) => {
+        for (const img of v) img.destroy()
+      },
     )
   }
 
@@ -315,8 +352,9 @@ export class BattleView {
       rune: null,
       bar: null,
       lastHp: hp,
+      lastHit: -1,
       flash: 0,
-      tint: 'none',
+      tint: PLAIN,
       dying: false,
     }
   }
@@ -347,6 +385,10 @@ export class BattleView {
     let shadow: Image | null = null
     let light: Image | null = null
     switch (p.kind) {
+      case 'rocket':
+        img = loop('projectiles/fireball').setScale(0.75)
+        light = this.light(0xffb05a, 30, 0.6)
+        break
       case 'arrow':
         img = add.image(0, 0, 'projectiles/arrow')
         break
@@ -475,6 +517,14 @@ export class BattleView {
       setFrame(v, frameNameAt('ui/rally_flag', 'wave', f.t))
       v.setAlpha(Phaser.Math.Clamp((2.5 - f.t) * 2, 0, 1))
     })
+    const flame = anim('effects/flame', 'play')
+    this.zones.sync(w.zones, (z, v) => {
+      const alpha = Phaser.Math.Clamp(Math.min(z.t * 6, (z.life - z.t) * 2), 0, 1)
+      v.forEach((img, i) => {
+        setFrame(img, flame.names[(Math.floor(z.t * flame.fps) + i * 2) % flame.frames])
+        img.setAlpha(alpha)
+      })
+    })
 
     const sel = focus.tower
     const showRally = sel !== null && sel.type === 'barracks' && sel.buildT <= 0
@@ -517,6 +567,18 @@ export class BattleView {
       frame = frameNameAt(key, 'idle', t.animT)
     }
     setTexture(v.body, key, frame)
+
+    // the fourth tier shares the level 3 sprite and is told apart by its colour
+    const hexed = t.silenceT > 0
+    const tint = hexed ? HEXED_TINT : t.spec ? SPECS[t.spec].tint : PLAIN
+    if (tint !== v.tint) {
+      v.tint = tint
+      v.body.setTint(tint)
+      for (const u of v.units) u.setTint(tint)
+    }
+    const lockY = t.y - s.ay + 4
+    if (hexed && !v.lock) v.lock = this.scene.add.image(t.x, lockY, 'ui/icons_16', 'lock').setDepth(DEPTH.bars)
+    v.lock?.setVisible(hexed).setY(lockY + Math.round(Math.sin(this.time * 5)))
     if (t.type === 'barracks') return
 
     const ox = t.x - s.ax
@@ -527,7 +589,7 @@ export class BattleView {
       if (!slot) return
       let img = v.units[i]
       if (!img) {
-        img = this.scene.add.image(0, 0, unitKey)
+        img = this.scene.add.image(0, 0, unitKey).setTint(v.tint)
         v.units[i] = img
       }
       const busy = u.shootT >= 0
@@ -543,19 +605,18 @@ export class BattleView {
     })
   }
 
-  /** White flash when the unit lost health since the last frame, otherwise its resting tint. */
-  private tintUnit(v: UnitView, hp: number, dt: number, slowed: boolean): void {
-    if (hp < v.lastHp - 0.001) v.flash = 0.09
-    v.lastHp = hp
-    let want: UnitView['tint'] = slowed ? 'slow' : 'none'
+  /** White flash right after a hit, otherwise the resting colour of the unit. */
+  private tintUnit(v: UnitView, hit: boolean, dt: number, rest: number): void {
+    if (hit) v.flash = 0.09
+    let want = rest
     if (v.flash > 0) {
       v.flash -= dt
-      want = 'flash'
+      want = -1
     }
     if (want === v.tint) return
     v.tint = want
-    if (want === 'flash') v.body.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL)
-    else v.body.setTint(want === 'slow' ? SLOW_TINT : 0xffffff).setTintMode(Phaser.TintModes.MULTIPLY)
+    if (want < 0) v.body.setTint(PLAIN).setTintMode(Phaser.TintModes.FILL)
+    else v.body.setTint(want).setTintMode(Phaser.TintModes.MULTIPLY)
   }
 
   private syncBar(v: UnitView, show: boolean, x: number, y: number, ratio: number): void {
@@ -582,7 +643,7 @@ export class BattleView {
     const dying = e.state === 'dying'
     const x = Math.round(e.x)
     const y = Math.round(e.y)
-    const alpha = dying ? 1 : Math.min(1, e.age / 0.35)
+    const alpha = (dying ? 1 : Math.min(1, e.age / 0.35)) * (def.alpha ?? 1)
     // flying units sort by their ground position but always pass over walkers nearby
     const depth = e.y + (def.flying ? 6 : 0)
 
@@ -606,7 +667,16 @@ export class BattleView {
       .setFlipX(!vertical && e.flip)
       .setAlpha(alpha)
       .setDepth(depth)
-    this.tintUnit(v, e.hp, dt, slowed)
+    let status = PLAIN
+    if (!dying) {
+      if (e.stunT > 0) status = FROZEN_TINT
+      else if (slowed) status = SLOW_TINT
+      else if (e.poisonT > 0) status = POISON_TINT
+      else if (e.enraged) status = RAGE_TINT
+    }
+    const hit = e.hitAt !== v.lastHit
+    v.lastHit = e.hitAt
+    this.tintUnit(v, hit, dt, mixTint(def.tint ?? PLAIN, status))
 
     if (dying && !v.dying) {
       v.dying = true
@@ -639,7 +709,9 @@ export class BattleView {
       .setFlipX(!vertical && s.flip)
       .setAlpha(alpha)
       .setDepth(depth)
-    this.tintUnit(v, s.hp, dt, false)
+    const hit = s.hp < v.lastHp - 0.001
+    v.lastHp = s.hp
+    this.tintUnit(v, hit, dt, s.owner?.spec ? SPECS[s.owner.spec].tint : PLAIN)
     this.syncBar(v, !dying && (s.hp < s.maxHp || s === this.world.hero), s.x, s.y - 30, s.hp / s.maxHp)
   }
 
@@ -662,11 +734,12 @@ export class BattleView {
       const k = Math.min(1, p.t / p.dur)
       v.shadow.setPosition(Math.round(p.sx + (p.tx - p.sx) * k), Math.round(p.sy + 26 + (p.ty - p.sy - 26) * k))
     }
-    if (this.pace <= 0 || (p.kind !== 'fireball' && p.kind !== 'bolt')) return
+    if (this.pace <= 0 || (p.kind !== 'fireball' && p.kind !== 'bolt' && p.kind !== 'rocket')) return
     v.trail -= dt * this.pace
     if (v.trail > 0) return
     v.trail = 0.035
     if (p.kind === 'fireball') this.fx.ember(x, y, 2)
+    else if (p.kind === 'rocket') this.fx.ember(x, y, 1)
     else this.fx.magic(x, y, 1)
   }
 

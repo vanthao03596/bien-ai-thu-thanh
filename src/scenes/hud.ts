@@ -478,6 +478,19 @@ export class HudScene extends Phaser.Scene {
     return [...counts.entries()].map(([type, n]) => `${n} ${ENEMIES[type].name}`).join(', ')
   }
 
+  /** One line per kind of enemy in the next wave that has a trick of its own. */
+  private waveTraits(w: World): string[] {
+    const seen = new Set<EnemyType>()
+    const lines: string[] = []
+    for (const grp of w.nextWaveGroups()) {
+      const def = ENEMIES[grp.type]
+      if (seen.has(grp.type) || !def.trait) continue
+      seen.add(grp.type)
+      lines.push(`${def.name}: ${def.trait}.`)
+    }
+    return lines
+  }
+
   /** Skull buttons at the road heads that will be used by the next wave. */
   private updateWaveButtons(f: HudFrame, live: boolean): void {
     const w = this.session.world
@@ -505,6 +518,7 @@ export class HudScene extends Phaser.Scene {
         f.info = [
           `Đợt ${w.waveIndex + 2}/${w.waveCount}: ${this.waveSummary(w)}`,
           bonus > 0 ? `Gọi sớm được thưởng ${bonus} vàng.` : 'Bấm để gọi quái ra trận.',
+          ...this.waveTraits(w),
         ]
       }
     })

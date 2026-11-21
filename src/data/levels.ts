@@ -1,5 +1,5 @@
 import type { EnemyType } from './enemies'
-import type { TowerType } from './towers'
+import type { SpecId, TowerType } from './towers'
 import type { TileCoord } from '../sim/path'
 
 export const MAP_COLS = 24
@@ -50,6 +50,8 @@ export interface LevelDef {
   heroStart: TileCoord
   props: PropDef[]
   towers: TowerType[]
+  /** fourth-tier specialisations the level offers; none when left out */
+  specs?: readonly SpecId[]
   startGold: number
   lives: number
   waves: WaveDef[]
@@ -94,11 +96,11 @@ const meadow: LevelDef = {
     { groups: [g('goblin', 12, 0.9)] },
     { groups: [g('goblin', 10, 0.8), g('wolf', 5, 1.2, 8)] },
     { groups: [g('skeleton', 6, 1.6), g('goblin', 12, 0.7, 5)] },
-    { groups: [g('orc', 5, 2.2), g('wolf', 8, 0.9, 6)] },
+    { groups: [g('orc', 5, 2.2), g('wolf', 8, 0.9, 6), g('goblin_archer', 3, 1.5, 10)] },
     { groups: [g('bat', 8, 1.1), g('skeleton', 8, 1.3, 3)] },
-    { groups: [g('orc', 6, 1.8), g('goblin', 16, 0.5, 4), g('wolf', 8, 0.8, 14)] },
-    { groups: [g('skeleton', 12, 1.0), g('bat', 10, 0.9, 6), g('orc', 4, 2.0, 12)] },
-    { groups: [g('ogre', 1, 1), g('orc', 8, 1.6, 2), g('goblin', 20, 0.45, 6), g('wolf', 10, 0.7, 16)] },
+    { groups: [g('orc', 6, 1.8), g('goblin', 16, 0.5, 4), g('wolf', 8, 0.8, 14), g('goblin_archer', 4, 1.2, 8)] },
+    { groups: [g('skeleton', 12, 1.0), g('bat', 10, 0.9, 6), g('berserker', 3, 2.4, 12)] },
+    { groups: [g('ogre', 1, 1), g('orc', 8, 1.6, 2), g('goblin', 20, 0.45, 6), g('wolf', 10, 0.7, 16), g('berserker', 3, 2.0, 20)] },
   ],
 }
 
@@ -134,24 +136,35 @@ const creek: LevelDef = {
     { kind: 'ruin_pillar_broken', x: 2.6, y: 11.4 },
   ],
   towers: ['archer', 'barracks', 'mage', 'artillery'],
-  startGold: 320,
+  specs: ['repeater', 'frost', 'bombard', 'guard'],
+  startGold: 360,
   lives: 20,
   waves: [
     { groups: [g('goblin', 10, 1.0)] },
     { groups: [g('goblin', 8, 0.9, 0, 1), g('wolf', 6, 1.1, 5)] },
-    { groups: [g('skeleton', 8, 1.3), g('goblin', 10, 0.7, 3, 1)] },
+    { groups: [g('skeleton', 8, 1.3), g('goblin', 6, 0.7, 3, 1), g('goblin_archer', 4, 1.4, 8, 1)] },
     { groups: [g('orc', 6, 1.8), g('bat', 8, 1.1, 4, 1)] },
-    { groups: [g('shaman', 2, 5, 3), g('skeleton', 12, 1.0), g('wolf', 10, 0.7, 6, 1)] },
-    { groups: [g('dark_knight', 3, 4.5), g('goblin', 20, 0.45, 2, 1), g('bat', 10, 0.9, 10)] },
-    { groups: [g('orc', 10, 1.4), g('shaman', 3, 5, 4), g('orc', 8, 1.6, 3, 1)] },
-    { groups: [g('ogre', 2, 9), g('wolf', 18, 0.5, 2, 1), g('bat', 14, 0.7, 8)] },
-    { groups: [g('dark_knight', 5, 3.5), g('skeleton', 18, 0.8, 2, 1), g('shaman', 3, 4, 6, 1)] },
-    { groups: [g('goblin', 30, 0.35), g('orc', 14, 1.0, 4, 1), g('bat', 16, 0.6, 12, 1)] },
-    { groups: [g('ogre', 2, 8), g('dark_knight', 5, 3.2, 4, 1), g('wolf', 20, 0.45, 10), g('shaman', 3, 4, 12)] },
+    { groups: [g('shaman', 2, 5, 3), g('skeleton', 12, 1.0), g('wolf', 7, 0.7, 6, 1), g('ghost_wolf', 3, 1.6, 12, 1)] },
+    { groups: [g('dark_knight', 3, 4.5), g('goblin', 14, 0.45, 2, 1), g('bat', 10, 0.9, 10), g('berserker', 3, 2.4, 10, 1)] },
+    { groups: [g('orc', 10, 1.4), g('shaman', 2, 5, 4), g('berserker', 4, 2.2, 3, 1), g('necromancer', 1, 1, 9, 1)] },
+    { groups: [g('troll', 2, 9), g('wolf', 14, 0.5, 2, 1), g('ghost_wolf', 3, 1.4, 10, 1), g('bat', 9, 0.7, 8), g('brood_bat', 1, 1, 15)] },
+    { groups: [g('dark_knight', 5, 3.5), g('skeleton', 10, 0.8, 2, 1), g('necromancer', 2, 7, 5, 1), g('shaman', 2, 4, 6, 1)] },
     {
       groups: [
-        g('ogre', 2, 7, 0, 1), g('orc', 16, 0.9, 2), g('skeleton', 18, 0.8, 8, 1),
-        g('dark_knight', 5, 3, 16), g('bat', 18, 0.55, 20, 1),
+        g('goblin', 20, 0.35), g('goblin_archer', 8, 0.8, 7), g('orc', 10, 1.0, 4, 1), g('berserker', 3, 2.0, 14, 1),
+        g('bat', 11, 0.6, 12, 1), g('brood_bat', 1, 1, 19, 1),
+      ],
+    },
+    {
+      groups: [
+        g('ogre', 1, 1), g('troll', 1, 1, 8), g('dark_knight', 5, 3.2, 4, 1), g('wolf', 14, 0.45, 10),
+        g('ghost_wolf', 4, 1.2, 17), g('shaman', 3, 4, 12),
+      ],
+    },
+    {
+      groups: [
+        g('ogre_king', 1, 1, 6, 1), g('orc', 12, 0.9, 2), g('skeleton', 10, 0.8, 8, 1), g('necromancer', 1, 1, 16, 1),
+        g('dark_knight', 4, 3, 16), g('bat', 12, 0.55, 20, 1), g('brood_bat', 1, 1, 27, 1),
       ],
     },
   ],
@@ -190,27 +203,54 @@ const hellgate: LevelDef = {
     { kind: 'fence_h', x: 23.2, y: 2.9 },
   ],
   towers: ['archer', 'barracks', 'mage', 'artillery'],
-  startGold: 400,
+  specs: ['repeater', 'marksman', 'frost', 'storm', 'bombard', 'rocket', 'guard', 'blade'],
+  startGold: 480,
   lives: 20,
   waves: [
     { groups: [g('goblin', 10, 0.9), g('goblin', 8, 1.0, 3, 1)] },
     { groups: [g('wolf', 8, 0.9), g('skeleton', 6, 1.4, 2, 1)] },
-    { groups: [g('orc', 5, 1.8), g('bat', 8, 1.0, 3, 1)] },
-    { groups: [g('skeleton', 10, 1.0), g('shaman', 2, 5, 3), g('wolf', 10, 0.7, 5, 1)] },
-    { groups: [g('dark_knight', 2, 5), g('orc', 6, 1.6, 2, 1), g('bat', 8, 0.9, 8)] },
-    { groups: [g('goblin', 24, 0.4), g('ogre', 1, 1, 6, 1), g('shaman', 2, 4, 8, 1)] },
-    { groups: [g('dark_knight', 4, 3.5), g('skeleton', 14, 0.8, 2, 1), g('bat', 10, 0.8, 10, 1)] },
-    { groups: [g('ogre', 2, 7), g('orc', 10, 1.2, 3, 1), g('wolf', 14, 0.5, 10)] },
-    { groups: [g('shaman', 4, 3), g('dark_knight', 4, 3.0, 2, 1), g('goblin', 20, 0.4, 8), g('bat', 12, 0.7, 12, 1)] },
-    { groups: [g('ogre', 3, 6), g('orc', 12, 1.0, 2, 1), g('skeleton', 14, 0.8, 8), g('dark_knight', 3, 3, 16, 1)] },
-    { groups: [g('ogre', 2, 5, 0, 1), g('dark_knight', 5, 2.5), g('wolf', 18, 0.45, 6, 1), g('bat', 14, 0.6, 10), g('shaman', 3, 3, 12)] },
-    { groups: [g('orc', 16, 0.9), g('skeleton', 16, 0.8, 2, 1), g('ogre', 2, 6, 10), g('bat', 16, 0.6, 14, 1)] },
-    { groups: [g('dark_knight', 6, 2.5), g('dark_knight', 5, 3, 3, 1), g('shaman', 4, 3, 6), g('wolf', 20, 0.4, 12, 1)] },
-    { groups: [g('ogre', 4, 5), g('ogre', 3, 6, 4, 1), g('goblin', 30, 0.35, 8), g('bat', 18, 0.5, 16, 1), g('orc', 10, 1.0, 20)] },
+    { groups: [g('orc', 5, 1.8), g('bat', 8, 1.0, 3, 1), g('goblin_archer', 4, 1.2, 6)] },
+    { groups: [g('skeleton', 10, 1.0), g('shaman', 2, 5, 3), g('wolf', 7, 0.7, 5, 1), g('ghost_wolf', 3, 1.4, 10, 1)] },
+    { groups: [g('dark_knight', 2, 5), g('orc', 3, 1.6, 2, 1), g('berserker', 3, 2.2, 6, 1), g('bat', 8, 0.9, 8)] },
+    { groups: [g('goblin', 18, 0.4), g('goblin_archer', 6, 0.9, 8), g('ogre', 1, 1, 6, 1), g('shaman', 1, 1, 8, 1), g('hexer', 1, 1, 12, 1)] },
+    { groups: [g('dark_knight', 4, 3.5), g('skeleton', 8, 0.8, 2, 1), g('necromancer', 1, 1, 8, 1), g('bat', 6, 0.8, 10, 1), g('brood_bat', 1, 1, 15, 1)] },
+    { groups: [g('troll', 2, 7), g('orc', 10, 1.2, 3, 1), g('wolf', 10, 0.5, 10), g('ghost_wolf', 3, 1.4, 16)] },
+    { groups: [g('shaman', 2, 3), g('hexer', 2, 6, 4), g('dark_knight', 4, 3.0, 2, 1), g('goblin', 20, 0.4, 8), g('bat', 12, 0.7, 12, 1)] },
+    {
+      groups: [
+        g('ogre', 2, 6), g('troll', 1, 1, 12), g('orc', 8, 1.0, 2, 1), g('berserker', 3, 2.0, 10, 1),
+        g('skeleton', 14, 0.8, 8), g('warchief', 1, 1, 14, 1),
+      ],
+    },
+    {
+      groups: [
+        g('ogre', 2, 5, 0, 1), g('dark_knight', 5, 2.5), g('wolf', 12, 0.45, 6, 1), g('ghost_wolf', 4, 1.2, 12, 1),
+        g('bat', 9, 0.6, 10), g('brood_bat', 1, 1, 16), g('shaman', 3, 3, 12),
+      ],
+    },
+    {
+      groups: [
+        g('orc', 12, 0.9), g('berserker', 4, 1.8, 11), g('skeleton', 8, 0.8, 2, 1), g('necromancer', 2, 6, 8, 1),
+        g('ogre', 2, 6, 10), g('bat', 11, 0.6, 14, 1), g('brood_bat', 1, 1, 21, 1),
+      ],
+    },
+    {
+      groups: [
+        g('dark_knight', 6, 2.5), g('dark_knight', 3, 3, 3, 1), g('warchief', 1, 1, 9, 1), g('shaman', 2, 3, 6),
+        g('hexer', 2, 4, 9), g('wolf', 16, 0.45, 12, 1),
+      ],
+    },
+    {
+      groups: [
+        g('ogre', 3, 5), g('troll', 2, 6, 8), g('ogre', 2, 6, 4, 1), g('goblin', 22, 0.35, 8), g('goblin_archer', 8, 0.7, 12),
+        g('bat', 12, 0.5, 16, 1), g('brood_bat', 2, 3, 22, 1), g('orc', 10, 1.0, 20),
+      ],
+    },
     {
       groups: [
         g('demon_boss', 1, 1, 4), g('orc', 12, 1.2, 0, 1), g('skeleton', 14, 1.0, 10),
-        g('dark_knight', 6, 3.5, 14, 1), g('ogre', 3, 7, 22, 1), g('goblin', 24, 0.45, 30), g('bat', 16, 0.6, 36),
+        g('dark_knight', 4, 3.5, 14, 1), g('warchief', 1, 1, 20, 1), g('ogre', 2, 7, 22, 1), g('troll', 1, 1, 30, 1),
+        g('goblin', 24, 0.45, 30), g('bat', 16, 0.6, 36), g('hexer', 1, 1, 26),
       ],
     },
   ],

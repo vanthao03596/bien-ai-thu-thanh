@@ -14,6 +14,9 @@ const MIN_GAP: Partial<Record<SoundName, number>> = {
   coin: 0.1,
   heal: 0.3,
   soldier_down: 0.2,
+  summon: 0.3,
+  enrage: 0.2,
+  silence: 0.2,
 }
 
 /** All sound effects are synthesised on the fly; the asset pack ships no audio. */
@@ -128,6 +131,30 @@ export class Sfx {
         this.tone('triangle', 523, 523, 0.09, 0.12)
         this.tone('triangle', 659, 659, 0.09, 0.12, 0.08)
         this.tone('triangle', 784, 784, 0.16, 0.12, 0.16)
+        break
+      case 'specialize':
+        ;[523, 659, 784, 1047].forEach((f, i) => this.tone('triangle', f, f, 0.14, 0.12, i * 0.07))
+        break
+      case 'skill':
+        this.tone('triangle', 784, 784, 0.08, 0.11)
+        this.tone('triangle', 1047, 1047, 0.14, 0.11, 0.07)
+        break
+      case 'freeze':
+        this.noise(0.35, 0.1, 5200, 'highpass')
+        this.tone('sine', 1500, 600, 0.3, 0.07)
+        break
+      case 'silence':
+        this.tone('sawtooth', 420, 110, 0.3, 0.08)
+        break
+      case 'quake':
+        this.noise(0.45, 0.3, 320, 'lowpass')
+        this.tone('sine', 70, 34, 0.4, 0.3)
+        break
+      case 'summon':
+        this.tone('sine', 180, 420, 0.3, 0.07)
+        break
+      case 'enrage':
+        this.tone('sawtooth', 130, 260, 0.22, 0.1)
         break
       case 'wave':
         this.tone('sawtooth', 147, 147, 0.5, 0.1)

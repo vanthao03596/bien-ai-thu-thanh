@@ -138,6 +138,9 @@ export class BattleScene extends Phaser.Scene {
       case 'hero_special':
         cam.shake(120, 0.0025)
         break
+      case 'quake':
+        cam.shake(260, 0.006)
+        break
       case 'lose':
         this.fadeToGrey()
         break

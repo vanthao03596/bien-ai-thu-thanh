@@ -1,12 +1,24 @@
 import Phaser from 'phaser'
 import { sfx } from '../app'
 import { VIEW_H, VIEW_W } from '../data/levels'
-import { MAX_LEVEL, TOWERS, TOWER_TYPES, type TowerType } from '../data/towers'
+import {
+  MAX_LEVEL,
+  MAX_SKILL_RANK,
+  SKILL_INFO,
+  SPECS,
+  SPEC_CHOICES,
+  TOWERS,
+  TOWER_TYPES,
+  skillText,
+  towerStats,
+  type TowerStats,
+  type TowerType,
+} from '../data/towers'
 import type { Session } from '../session'
 import type { Plot, Tower } from '../sim/types'
 import type { RangeMarker } from '../view/battle-view'
 import { Digits } from './text'
-import { HUD, HitBox, RoundButton, icon, setFrame, sprite } from './widgets'
+import { HUD, HitBox, RoundButton, icon, setFrame, sprite, type RoundButtonOptions } from './widgets'
 
 /** What the HUD collects over one frame while its parts update. */
 export interface HudFrame {
@@ -130,13 +142,16 @@ export class BuildMenu {
   }
 }
 
-function towerInfo(t: Tower, level: number): string {
-  const def = TOWERS[t.type]
-  if (t.type === 'barracks') {
-    return `Lính: ${def.soldierHp[level]} máu, sát thương ${def.dmg[level][0]}-${def.dmg[level][1]}, giáp ${Math.round(def.soldierArmor[level] * 100)}%`
+function statLine(type: TowerType, stats: TowerStats, extra = ''): string {
+  if (type === 'barracks') {
+    return `Lính: ${stats.soldierHp} máu, sát thương ${stats.dmg[0]}-${stats.dmg[1]}, giáp ${Math.round(stats.soldierArmor * 100)}%`
   }
-  const extra = t.type === 'artillery' ? `, nổ lan ${def.splash[level]}` : t.type === 'mage' && level >= MAX_LEVEL ? ', làm chậm' : ''
-  return `Sát thương ${def.dmg[level][0]}-${def.dmg[level][1]}, nhịp ${def.cooldown[level]}s, tầm ${def.range[level]}${extra}`
+  const splash = stats.splash > 0 ? `, nổ lan ${stats.splash}` : ''
+  return `Sát thương ${stats.dmg[0]}-${stats.dmg[1]}, nhịp ${stats.cooldown}s, tầm ${stats.range}${splash}${extra}`
+}
+
+function towerInfo(t: Tower, level: number): string {
+  return statLine(t.type, towerStats(t.type, level, null), t.type === 'mage' && level >= MAX_LEVEL ? ', làm chậm' : '')
 }
 
 /** A round button with a caption under it and a tick for touch confirmation, centred on its container. */
@@ -152,20 +167,33 @@ function actionButton(
   parent: Phaser.GameObjects.Container,
   name: string,
   onClick: (pointer: Phaser.Input.Pointer) => void,
+  opts: RoundButtonOptions = {},
 ): ActionButton {
   const slot = scene.add.container(0, 0)
   parent.add(slot)
-  const button = new RoundButton(scene, -16, -16, name, onClick, {}, slot)
+  const button = new RoundButton(scene, -16, -16, name, onClick, opts, slot)
   const caption = new Digits(scene, 0, 10, '', 'center')
   slot.add(caption.obj)
   const check = icon(scene, 'check', -8, -8, slot).setVisible(false)
   return { slot, button, caption, check }
 }
 
-/** Upgrade, sell and rally buttons around a built tower. */
+const PIP_ON = 0xffe27a
+const PIP_OFF = 0x4a3324
+
+/** One of the two buttons above a top-level tower: first a specialisation to pick, then a skill to train. */
+interface BranchButton extends ActionButton {
+  id: string
+  /** one mark per skill rank, on a dark plate */
+  pips: Phaser.GameObjects.Rectangle[]
+  pipPlate: Phaser.GameObjects.Rectangle
+}
+
+/** Upgrade, specialisation, skill, sell and rally buttons around a built tower. */
 export class TowerMenu {
   private readonly root: Phaser.GameObjects.Container
   private readonly upgrade: ActionButton
+  private readonly branches: BranchButton[]
   private readonly sell: ActionButton
   private readonly rally: ActionButton
   private tower: Tower | null = null
@@ -183,6 +211,20 @@ export class TowerMenu {
       const t = this.tower
       if (t) s.confirm('tower-upgrade', pointer.wasTouch, () => void s.world.upgrade(t))
     })
+    this.branches = ([0, 1] as const).map((slot) => {
+      const id = `tower-branch-${slot}`
+      const b = actionButton(scene, this.root, 'round_blank', (pointer) => this.chooseBranch(slot, id, pointer.wasTouch), { icon: 'star' })
+      const plateW = MAX_SKILL_RANK * 6 + 1
+      const left = -Math.floor(plateW / 2)
+      const pipPlate = scene.add.rectangle(left, -24, plateW, 6, 0x1d1322).setOrigin(0, 0)
+      b.slot.add(pipPlate)
+      const pips = Array.from({ length: MAX_SKILL_RANK }, (_, k) => {
+        const pip = scene.add.rectangle(left + 1 + k * 6, -23, 5, 4, PIP_OFF).setOrigin(0, 0)
+        b.slot.add(pip)
+        return pip
+      })
+      return { ...b, id, pips, pipPlate }
+    })
     this.sell = actionButton(scene, this.root, 'sell', (pointer) => {
       const t = this.tower
       if (!t) return
@@ -193,11 +235,29 @@ export class TowerMenu {
     this.rally = actionButton(scene, this.root, 'rally', () => s.startRally())
   }
 
+  /** Picks the specialisation on that side, or trains the skill on that side once the tower has one. */
+  private chooseBranch(slot: 0 | 1, id: string, touch: boolean): void {
+    const s = this.session
+    const w = s.world
+    const t = this.tower
+    if (!t) return
+    if (t.spec) {
+      const cost = w.skillCost(t, slot)
+      if (cost === null || w.gold < cost) sfx.play('deny')
+      else s.confirm(id, touch, () => void w.buySkill(t, slot))
+      return
+    }
+    const spec = SPEC_CHOICES[t.type][slot]
+    if (!w.canSpecialize(t, spec)) sfx.play('deny')
+    else s.confirm(id, touch, () => void w.specialize(t, spec))
+  }
+
   private hide(): void {
     if (!this.openFor) return
     this.openFor = null
     this.root.setVisible(false)
     this.upgrade.button.hit.reset()
+    for (const b of this.branches) b.button.hit.reset()
     this.sell.button.hit.reset()
     this.rally.button.hit.reset()
   }
@@ -213,7 +273,13 @@ export class TowerMenu {
     const w = s.world
     const t = tower
     const def = TOWERS[t.type]
-    f.info = [`${def.name} cấp ${t.level + 1}`, t.buildT > 0 ? 'Đang xây...' : towerInfo(t, t.level)]
+    const spec = t.spec ? SPECS[t.spec] : null
+    const state =
+      t.buildT > 0 ? 'Đang xây...'
+      : t.silenceT > 0 ? 'Bị yểm bùa: tạm thời không bắn được.'
+      : spec ? statLine(t.type, spec)
+      : towerInfo(t, t.level)
+    f.info = [spec ? spec.name : `${def.name} cấp ${t.level + 1}`, state]
     f.infoBottom = anchor.y < 200
     if (s.mode !== 'normal') {
       this.hide()
@@ -253,6 +319,8 @@ export class TowerMenu {
       }
     }
 
+    this.updateBranches(f, t, zoom)
+
     const value = w.sellValue(t)
     const sellArmed = s.armed === 'tower-sell'
     this.sell.caption.set(`+${value}`)
@@ -264,5 +332,58 @@ export class TowerMenu {
     this.rally.caption.obj.setVisible(false)
     if (!barracks) this.rally.button.hit.reset()
     else if (this.rally.button.hover) f.info = ['Điểm tập kết', 'Chọn nơi lính đứng chặn quái.']
+  }
+
+  /** The pair of buttons above a tower that reached level 3: two branches, then the two skills of the chosen one. */
+  private updateBranches(f: HudFrame, t: Tower, zoom: number): void {
+    const s = this.session
+    const w = s.world
+    const spec = t.spec ? SPECS[t.spec] : null
+    const choices = SPEC_CHOICES[t.type]
+    const choosing = w.awaitsSpec(t) && choices.some((id) => w.specAllowed(id))
+    this.branches.forEach((b, i) => {
+      const slot = i === 0 ? 0 : 1
+      const visible = choosing || spec !== null
+      b.slot.setVisible(visible)
+      if (!visible) {
+        b.button.hit.reset()
+        return
+      }
+      b.slot.setPosition(Math.round((slot === 0 ? -24 : 24) * zoom), Math.round(-42 * zoom))
+      const armed = s.armed === b.id
+      const hot = b.button.hover || armed
+      b.check.setVisible(armed)
+      if (!spec) {
+        const option = SPECS[choices[slot]]
+        const allowed = w.specAllowed(option.id)
+        const affordable = w.gold >= option.cost
+        b.button.setIcon(allowed ? option.icon : 'lock').setState(!allowed || !affordable)
+        b.caption.set(String(option.cost)).obj.setVisible(allowed).setAlpha(affordable ? 1 : 0.6)
+        b.pipPlate.setVisible(false)
+        for (const pip of b.pips) pip.setVisible(false)
+        if (!hot) return
+        if (!allowed) {
+          f.info = [option.name, 'Nhánh này chưa mở ở màn chơi hiện tại.']
+          return
+        }
+        f.info = [`${option.name}  -  ${option.cost} vàng`, option.blurb, statLine(t.type, option)]
+        f.ranges.push({ x: t.x, y: t.y + 4, r: option.range, ok: affordable })
+        return
+      }
+      const id = spec.skills[slot]
+      const info = SKILL_INFO[id]
+      const rank = t.skills[slot]
+      const cost = w.skillCost(t, slot)
+      const affordable = cost !== null && w.gold >= cost
+      b.button.setIcon(info.icon).setState(cost !== null && !affordable)
+      b.caption.set(cost === null ? '' : String(cost)).obj.setVisible(cost !== null).setAlpha(affordable ? 1 : 0.6)
+      b.pipPlate.setVisible(true)
+      b.pips.forEach((pip, k) => pip.setVisible(true).setFillStyle(k < rank ? PIP_ON : PIP_OFF))
+      if (!hot) return
+      f.info =
+        cost === null
+          ? [`${info.name}  -  đã tối đa`, skillText(id, rank)]
+          : [`${info.name} bậc ${rank + 1}/${MAX_SKILL_RANK}  -  ${cost} vàng`, skillText(id, rank + 1)]
+    })
   }
 }

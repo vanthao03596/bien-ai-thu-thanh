@@ -1,8 +1,10 @@
-import { TOWERS, type TowerType } from '../data/towers'
+import { SPECS, SPEC_CHOICES, TOWERS, type TowerType } from '../data/towers'
 import { samplePath } from './path'
 import type { Enemy, Plot } from './types'
 import { inRange, type World } from './world'
 
+/** part of the plots the bot fills before it only upgrades */
+const BUILD_SHARE = 0.7
 const BUILD_ORDER: readonly TowerType[] = ['archer', 'barracks', 'mage', 'archer', 'artillery', 'mage', 'archer', 'barracks']
 
 /**
@@ -51,7 +53,8 @@ export class Bot {
     const w = this.world
     // a few rounds per think so the opening gold is spent at once
     for (let round = 0; round < 6; round++) {
-      const wantTowers = Math.min(this.order.length, 3 + Math.floor((w.waveIndex + 1) * 0.9))
+      // leave some plots empty: the gold goes further in a few strong towers than in many weak ones
+      const wantTowers = Math.min(Math.ceil(this.order.length * BUILD_SHARE), 3 + Math.floor((w.waveIndex + 1) * 0.9))
       const free = this.order.find((p) => p.tower === null)
       if (free && w.towers.length < wantTowers) {
         const type = BUILD_ORDER[this.built % BUILD_ORDER.length]
@@ -59,17 +62,25 @@ export class Bot {
         if (w.build(free.id, type)) this.built += 1
         continue
       }
-      let best = null
-      let bestCost = Infinity
-      for (const t of w.towers) {
-        const cost = w.upgradeCost(t)
-        if (cost !== null && t.buildT <= 0 && cost < bestCost) {
-          bestCost = cost
-          best = t
-        }
+      // the cheapest improvement on the field: a level, a specialisation or a skill rank
+      const options: { cost: number; buy: () => boolean }[] = []
+      const consider = (cost: number | null, buy: () => boolean): void => {
+        if (cost !== null) options.push({ cost, buy })
       }
-      if (best && w.gold >= bestCost) {
-        w.upgrade(best)
+      for (const t of w.towers) {
+        if (t.buildT > 0) continue
+        consider(w.upgradeCost(t), () => w.upgrade(t))
+        if (w.awaitsSpec(t)) {
+          const open = SPEC_CHOICES[t.type].filter((id) => w.specAllowed(id))
+          const pick = open[t.id % Math.max(1, open.length)]
+          if (pick) consider(SPECS[pick].cost, () => w.specialize(t, pick))
+        }
+        for (const slot of [0, 1] as const) consider(w.skillCost(t, slot), () => w.buySkill(t, slot))
+      }
+      options.sort((x, y) => x.cost - y.cost)
+      const best = options[0]
+      if (best && w.gold >= best.cost) {
+        best.buy()
         continue
       }
       if (!best && free) {
