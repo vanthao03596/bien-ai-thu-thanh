@@ -17,6 +17,18 @@ export const MAX_LEVEL = 2 // zero based: levels 0, 1, 2
 /** Vertical squash of every range circle (the map is seen from above at an angle). */
 export const RANGE_SQUASH = 0.75
 
+/**
+ * A word that bursts out where a blow lands. Fast towers show theirs only for
+ * the blow that finishes an enemy: a word on every arrow would bury the field,
+ * and this way it marks the shot that counted.
+ */
+export interface PopDef {
+  words: readonly string[]
+  /** chance to show a word when the condition holds, 0..1 */
+  chance: number
+  on: 'kill' | 'hit'
+}
+
 export interface TowerDef {
   type: TowerType
   name: string
@@ -36,6 +48,7 @@ export interface TowerDef {
   /** barracks: soldier hit points and armor */
   soldierHp: readonly [number, number, number]
   soldierArmor: readonly [number, number, number]
+  pop: PopDef
 }
 
 export const TOWERS: Record<TowerType, TowerDef> = {
@@ -50,6 +63,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     splash: [0, 0, 0],
     soldierHp: [0, 0, 0],
     soldierArmor: [0, 0, 0],
+    pop: { words: ['PHẬP!', 'XOẸT!'], chance: 0.6, on: 'kill' },
   },
   mage: {
     type: 'mage', name: 'Tháp phép', blurb: 'Phép thuật bỏ qua giáp. Cấp 3 làm chậm.',
@@ -62,6 +76,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     splash: [0, 0, 0],
     soldierHp: [0, 0, 0],
     soldierArmor: [0, 0, 0],
+    pop: { words: ['XẸT!', 'RẮC!'], chance: 0.6, on: 'kill' },
   },
   artillery: {
     type: 'artillery', name: 'Tháp pháo', blurb: 'Nổ lan, giáp chỉ cản một nửa. Không bắn quái bay.',
@@ -74,6 +89,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     splash: [34, 38, 44],
     soldierHp: [0, 0, 0],
     soldierArmor: [0, 0, 0],
+    pop: { words: ['ĐÙNG!', 'BÙM!'], chance: 0.35, on: 'hit' },
   },
   barracks: {
     type: 'barracks', name: 'Doanh trại', blurb: 'Ba người lính chặn đường quái.',
@@ -86,6 +102,7 @@ export const TOWERS: Record<TowerType, TowerDef> = {
     splash: [0, 0, 0],
     soldierHp: [50, 85, 130],
     soldierArmor: [0, 0.15, 0.3],
+    pop: { words: ['CHÉM!', 'BỐP!'], chance: 0.5, on: 'kill' },
   },
 }
 

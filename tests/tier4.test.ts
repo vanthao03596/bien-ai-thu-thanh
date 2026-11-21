@@ -19,6 +19,7 @@ import {
   type SpecId,
   type TowerType,
 } from '../src/data/towers'
+import { hasMod, isFrozen, modOf } from '../src/sim/mods'
 import type { Tower } from '../src/sim/types'
 import { World } from '../src/sim/world'
 
@@ -43,6 +44,8 @@ function testLevel(overrides: Partial<LevelDef> = {}): LevelDef {
     startGold: 9000,
     lives: 20,
     waves: [{ groups: [{ type: 'goblin', count: 1, gap: 1, at: 0 }] }],
+    modes: LEVELS[0].modes,
+    endless: LEVELS[0].endless,
     ...overrides,
   }
 }
@@ -181,8 +184,7 @@ describe('archer branches', () => {
     const t = specTower(w, 'repeater', [3, 0])
     const ogre = w.spawnEnemy(ENEMIES.ogre, 0, MID)
     run(w, 1.5)
-    expect(ogre.poisonT).toBeGreaterThan(0)
-    expect(ogre.poisonDps).toBe(SKILLS.poison.dps[2])
+    expect(modOf(ogre.mods, 'poison')?.def.dps).toBe(SKILLS.poison.dps[2])
     // the poison keeps working after the tower is gone
     w.sell(t)
     run(w, 0.6)
@@ -223,7 +225,7 @@ describe('archer branches', () => {
     specTower(w, 'marksman', [0, 2])
     const ogre = w.spawnEnemy(ENEMIES.ogre, 0, MID)
     run(w, 1.2)
-    expect(ogre.slowT).toBeGreaterThan(0)
+    expect(hasMod(ogre.mods, 'slow')).toBe(true)
     expect(w.enemySpeed(ogre)).toBeCloseTo(ENEMIES.ogre.speed * SKILLS.cripple.factor)
   })
 })
@@ -234,7 +236,7 @@ describe('mage branches', () => {
     specTower(w, 'frost')
     const ogre = w.spawnEnemy(ENEMIES.ogre, 0, MID)
     run(w, 2)
-    expect(ogre.slowFactor).toBe(FROST_SLOW.factor)
+    expect(modOf(ogre.mods, 'slow')?.def.speed).toBe(FROST_SLOW.factor)
     expect(w.enemySpeed(ogre)).toBeCloseTo(ENEMIES.ogre.speed * FROST_SLOW.factor)
   })
 
@@ -246,11 +248,11 @@ describe('mage branches', () => {
     let frozen = 0
     for (let i = 0; i < 60 * 3 && frozen === 0; i++) {
       w.update(DT)
-      frozen = pack.filter((e) => e.stunT > 0).length
+      frozen = pack.filter((e) => isFrozen(e.mods)).length
     }
     expect(frozen).toBe(3)
-    expect(boss.stunT).toBe(0)
-    expect(boss.slowT).toBeGreaterThan(0)
+    expect(isFrozen(boss.mods)).toBe(false)
+    expect(hasMod(boss.mods, 'slow')).toBe(true)
     const at = pack.map((e) => e.dist)
     run(w, SKILLS.blizzard.freeze[1] - 0.2)
     expect(pack.map((e) => e.dist)).toEqual(at)
@@ -267,7 +269,7 @@ describe('mage branches', () => {
     run(w, 1.5)
     expect(front.hp).toBeLessThan(ENEMIES.ogre.hp)
     expect(behind.hp).toBeLessThan(ENEMIES.ogre.hp)
-    expect(behind.slowT).toBeGreaterThan(0)
+    expect(hasMod(behind.mods, 'slow')).toBe(true)
   })
 
   it('storm lightning jumps to a second enemy and wears armor down', () => {
@@ -338,7 +340,7 @@ describe('artillery branches', () => {
     let rockets = 0
     for (let i = 0; i < 60 * 4; i++) {
       w.update(DT)
-      stunned ||= pack.some((e) => e.stunT > 0)
+      stunned ||= pack.some((e) => isFrozen(e.mods))
       rockets = Math.max(rockets, w.projectiles.filter((p) => p.kind === 'rocket').length)
     }
     expect(stunned).toBe(true)

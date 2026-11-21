@@ -9,7 +9,9 @@ function makeSession(levelIndex = 0): { session: Session; sounds: string[]; wins
   const sounds: string[] = []
   const wins: [string, number][] = []
   const sfx = { play: (name: string) => sounds.push(name) } as unknown as Sfx
-  const session = new Session(levelIndex, sfx, (id, stars) => wins.push([id, stars]))
+  const session = new Session(levelIndex, sfx, (o) => {
+    if (o.won) wins.push([o.levelId, o.stars])
+  })
   return { session, sounds, wins }
 }
 
@@ -50,9 +52,9 @@ describe('session', () => {
   it('casts a spell where the player clicks and leaves targeting mode', () => {
     const { session } = makeSession()
     session.toggleSpell('fire')
-    expect(session.mode).toBe('fire')
+    expect(session.input).toBe('fire')
     session.worldClick(200, 160)
-    expect(session.mode).toBe('normal')
+    expect(session.input).toBe('normal')
     expect(session.world.spellCd.fire).toBe(SPELLS.fire.cooldown)
     expect(session.world.projectiles).toHaveLength(SPELLS.fire.count)
   })
@@ -61,7 +63,7 @@ describe('session', () => {
     const { session, sounds } = makeSession()
     session.world.spellCd.reinforce = 5
     session.toggleSpell('reinforce')
-    expect(session.mode).toBe('normal')
+    expect(session.input).toBe('normal')
     expect(sounds).toContain('deny')
   })
 
@@ -71,9 +73,9 @@ describe('session', () => {
     session.toggleSpell('fire')
     expect(session.selection.kind).toBe('none')
     session.selectHero()
-    session.mode = 'fire'
+    session.input = 'fire'
     expect(session.cancel()).toBe(true)
-    expect(session.mode).toBe('normal')
+    expect(session.input).toBe('normal')
     expect(session.selection.kind).toBe('hero')
     expect(session.cancel()).toBe(true)
     expect(session.selection.kind).toBe('none')

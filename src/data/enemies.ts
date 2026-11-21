@@ -76,6 +76,8 @@ export interface EnemyDef {
   /** height of the sprite above its feet, for health bars and hit points */
   height: number
   shadow: 'effects/shadow_small' | 'effects/shadow_medium' | 'effects/shadow_large'
+  /** what the card says when the player meets this enemy for the first time: what it does and what beats it */
+  intro: string
   boss?: boolean
   /**
    * Hand-set values for [easy, normal] that replace the plain field there.
@@ -97,31 +99,37 @@ export interface EnemyDef {
 export const ENEMIES: Record<EnemyType, EnemyDef> = {
   goblin: {
     type: 'goblin', name: 'Yêu tinh', sheet: 'enemies/goblin',
+    intro: 'Yếu nhưng kéo đến rất đông. Tháp cung và pháo nổ lan dọn chúng nhanh nhất.',
     hp: 21, speed: 36, armor: 0, magicRes: 0, gold: 3, lives: 1,
     dmg: [2, 4], atkCd: 1.0, flying: false, radius: 6, height: 20, shadow: 'effects/shadow_small',
   },
   wolf: {
     type: 'wolf', name: 'Sói hoang', sheet: 'enemies/wolf',
+    intro: 'Chạy rất nhanh, ít máu. Cho lính chặn lại để tháp kịp bắn.',
     hp: 37, speed: 60, armor: 0, magicRes: 0, gold: 5, lives: 1,
     dmg: [3, 5], atkCd: 0.9, flying: false, radius: 8, height: 16, shadow: 'effects/shadow_medium',
   },
   skeleton: {
     type: 'skeleton', name: 'Bộ xương', sheet: 'enemies/skeleton',
+    intro: 'Đi chậm, giáp mỏng. Tháp nào cũng trị được.',
     hp: 63, speed: 30, armor: 0.2, magicRes: 0, gold: 8, lives: 1,
     dmg: [4, 7], atkCd: 1.0, flying: false, radius: 6, height: 22, shadow: 'effects/shadow_small',
   },
   orc: {
     type: 'orc', name: 'Orc', sheet: 'enemies/orc',
+    intro: 'Trâu hơn yêu tinh và đánh lính khá đau. Nên có tháp phép hỗ trợ.',
     hp: 84, speed: 27, armor: 0.2, magicRes: 0, gold: 10, lives: 1,
     dmg: [6, 10], atkCd: 1.2, flying: false, radius: 7, height: 22, shadow: 'effects/shadow_medium',
   },
   bat: {
     type: 'bat', name: 'Dơi quỷ', sheet: 'enemies/bat',
+    intro: 'Bay qua đầu lính, pháo không bắn tới. Chỉ tháp cung và tháp phép hạ được.',
     hp: 32, speed: 48, armor: 0, magicRes: 0, gold: 5, lives: 1,
     dmg: [0, 0], atkCd: 1, flying: true, radius: 6, height: 26, shadow: 'effects/shadow_small',
   },
   shaman: {
     type: 'shaman', name: 'Pháp sư bộ lạc', sheet: 'enemies/shaman',
+    intro: 'Hồi máu cho quái xung quanh và kháng phép. Cho lính giữ chân là nó hết niệm chú, rồi hạ bằng cung hoặc pháo.',
     hp: 53, speed: 26, armor: 0, magicRes: 0.6, gold: 7, lives: 1,
     dmg: [3, 6], atkCd: 1.2, flying: false, radius: 6, height: 24, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'heal', amount: 26, radius: 64, cooldown: 5 }],
@@ -129,17 +137,20 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   dark_knight: {
     type: 'dark_knight', name: 'Hắc kỵ sĩ', sheet: 'enemies/dark_knight',
+    intro: 'Giáp rất dày, tên bắn gần như vô hại. Dùng tháp phép, hoặc pháo vì giáp chỉ cản được nửa sức nổ.',
     hp: 190, speed: 21, armor: 0.65, magicRes: 0, gold: 20, lives: 2,
     dmg: [14, 22], atkCd: 1.4, flying: false, radius: 7, height: 24, shadow: 'effects/shadow_medium',
     trait: 'giáp dày, tên bắn gần như vô hại: cần phép hoặc pháo',
   },
   ogre: {
     type: 'ogre', name: 'Chằn tinh', sheet: 'enemies/ogre',
+    intro: 'Rất nhiều máu, không giáp. Dồn mọi hỏa lực và cho lính cầm chân.',
     hp: 630, speed: 18, armor: 0, magicRes: 0, gold: 40, lives: 3,
     dmg: [28, 42], atkCd: 1.6, flying: false, radius: 11, height: 36, shadow: 'effects/shadow_large',
   },
   demon_boss: {
     type: 'demon_boss', name: 'Quỷ vương', sheet: 'enemies/demon_boss',
+    intro: 'Trùm cuối: dậm đất hạ lính, gọi dơi, yểm bùa khóa tháp. Để lọt cổng là mất sạch mạng.',
     hp: 3150, speed: 12, armor: 0.4, magicRes: 0.3, gold: 200, lives: 20,
     dmg: [70, 110], atkCd: 1.8, flying: false, radius: 15, height: 52, shadow: 'effects/shadow_large',
     boss: true,
@@ -153,6 +164,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   goblin_archer: {
     type: 'goblin_archer', name: 'Yêu tinh xạ thủ', sheet: 'enemies/goblin',
+    intro: 'Đứng xa bắn lính. Để tháp hạ nó trước khi lính bị bào mòn.',
     hp: 32, speed: 32, armor: 0, magicRes: 0, gold: 5, lives: 1,
     dmg: [2, 4], atkCd: 1.0, flying: false, radius: 6, height: 20, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'ranged', range: 96, dmg: [6, 10], cooldown: 1.6 }],
@@ -161,6 +173,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   ghost_wolf: {
     type: 'ghost_wolf', name: 'Sói ma', sheet: 'enemies/wolf',
+    intro: 'Lướt xuyên qua lính và gần như miễn sát thương vật lý. Chỉ tháp phép trị được.',
     hp: 38, speed: 50, armor: 0.8, magicRes: 0, gold: 5, lives: 1,
     dmg: [3, 5], atkCd: 0.9, flying: false, radius: 8, height: 16, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'ethereal' }],
@@ -169,6 +182,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   berserker: {
     type: 'berserker', name: 'Orc cuồng nộ', sheet: 'enemies/orc',
+    intro: 'Còn nửa máu thì chạy nhanh, đánh đau. Hạ thật nhanh hoặc làm chậm nó.',
     hp: 150, speed: 26, armor: 0.1, magicRes: 0, gold: 14, lives: 1,
     dmg: [8, 13], atkCd: 1.1, flying: false, radius: 7, height: 22, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'enrage', below: 0.5, speed: 1.9, dmg: 1.6 }],
@@ -177,6 +191,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   hexer: {
     type: 'hexer', name: 'Phù thủy yểm bùa', sheet: 'enemies/shaman',
+    intro: 'Yểm bùa khiến tháp ngừng bắn, lại kháng phép. Hạ sớm bằng cung hoặc pháo.',
     hp: 85, speed: 24, armor: 0, magicRes: 0.6, gold: 11, lives: 1,
     dmg: [3, 6], atkCd: 1.2, flying: false, radius: 6, height: 24, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'disable', range: 110, time: 4, cooldown: 9 }],
@@ -185,6 +200,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   necromancer: {
     type: 'necromancer', name: 'Thầy gọi hồn', sheet: 'enemies/shaman',
+    intro: 'Liên tục gọi bộ xương không cho vàng. Giết nó trước, đừng sa vào đám xương.',
     hp: 115, speed: 22, armor: 0, magicRes: 0.5, gold: 15, lives: 2,
     dmg: [4, 7], atkCd: 1.2, flying: false, radius: 6, height: 24, shadow: 'effects/shadow_small',
     abilities: [{ kind: 'summon', type: 'skeleton', count: 2, cooldown: 8, casts: 4 }],
@@ -193,6 +209,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   brood_bat: {
     type: 'brood_bat', name: 'Dơi chúa', sheet: 'enemies/bat',
+    intro: 'Bay, chết thì vỡ thành ba dơi quỷ. Cần tháp cung hoặc tháp phép phủ đủ tầm.',
     hp: 150, speed: 34, armor: 0, magicRes: 0, gold: 14, lives: 2,
     dmg: [0, 0], atkCd: 1, flying: true, radius: 9, height: 38, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'split', type: 'bat', count: 3 }],
@@ -201,6 +218,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   troll: {
     type: 'troll', name: 'Quỷ đầm lầy', sheet: 'enemies/ogre',
+    intro: 'Tự hồi máu khi không bị đánh. Phải bắn liên tục, đừng để nó ra khỏi tầm tháp.',
     hp: 440, speed: 20, armor: 0, magicRes: 0, gold: 30, lives: 2,
     dmg: [20, 30], atkCd: 1.5, flying: false, radius: 9, height: 30, shadow: 'effects/shadow_large',
     abilities: [{ kind: 'regen', perSec: 16, delay: 2.5 }],
@@ -209,6 +227,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   warchief: {
     type: 'warchief', name: 'Tù trưởng Orc', sheet: 'enemies/orc',
+    intro: 'Thúc quái xung quanh chạy nhanh hơn. Ưu tiên hạ nó hoặc làm chậm cả đám.',
     hp: 400, speed: 22, armor: 0.35, magicRes: 0, gold: 35, lives: 3,
     dmg: [16, 24], atkCd: 1.3, flying: false, radius: 9, height: 28, shadow: 'effects/shadow_medium',
     abilities: [{ kind: 'haste', radius: 72, speed: 1.3 }],
@@ -217,6 +236,7 @@ export const ENEMIES: Record<EnemyType, EnemyDef> = {
   },
   ogre_king: {
     type: 'ogre_king', name: 'Chúa chằn', sheet: 'enemies/ogre',
+    intro: 'Trùm: dậm đất hạ cả tốp lính và tự hồi máu. Cần hỏa lực liên tục, đừng trông vào lính.',
     hp: 1900, speed: 14, armor: 0.25, magicRes: 0, gold: 120, lives: 10,
     dmg: [45, 65], atkCd: 1.7, flying: false, radius: 15, height: 52, shadow: 'effects/shadow_large',
     boss: true,

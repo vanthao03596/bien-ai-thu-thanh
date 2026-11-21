@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hasAnim } from '../src/assets'
 import { ENEMIES, abilityOf, type EnemyDef } from '../src/data/enemies'
-import type { LevelDef } from '../src/data/levels'
+import { LEVELS, type LevelDef } from '../src/data/levels'
 import { World } from '../src/sim/world'
 
 const DT = 1 / 60
@@ -24,6 +24,8 @@ function testLevel(overrides: Partial<LevelDef> = {}): LevelDef {
     startGold: 1000,
     lives: 20,
     waves: [{ groups: [{ type: 'goblin', count: 1, gap: 1, at: 0 }] }],
+    modes: LEVELS[0].modes,
+    endless: LEVELS[0].endless,
     ...overrides,
   }
 }

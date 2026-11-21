@@ -1,9 +1,10 @@
 import Phaser from 'phaser'
 import { anim, frameNameAt, sheet } from '../assets'
 import { RANGE_SQUASH, SPECS, towerSheet } from '../data/towers'
-import type { Effect, Enemy, FloatText, Plot, Projectile, RallyFlag, Soldier, Tower, Zone } from '../sim/types'
-import { BUILD_TIME, type World } from '../sim/world'
-import { Digits, digitsWidth } from '../ui/text'
+import { hasMod, isFrozen } from '../sim/mods'
+import type { Effect, Enemy, FloatText, Plot, Pop, Projectile, RallyFlag, Soldier, Tower, Zone } from '../sim/types'
+import { BUILD_TIME, POP_LIFE, type World } from '../sim/world'
+import { Digits, digitsWidth, label } from '../ui/text'
 import { FX_GLOW, Fx } from './fx'
 import { MapView, type MapProp } from './map'
 
@@ -30,6 +31,7 @@ const POISON_TINT = 0xa6e884
 const RAGE_TINT = 0xff7a66
 const HEXED_TINT = 0x8a86a8
 const PLAIN = 0xffffff
+const POP_COLOR = '#fff3b0'
 /** flames of one burning patch: offsets as fractions of its radius */
 const FLAME_SPOTS: readonly (readonly [number, number])[] = [[0, 0], [-0.6, -0.25], [0.6, -0.2], [-0.3, 0.5], [0.4, 0.45]]
 
@@ -210,6 +212,7 @@ export class BattleView {
   private readonly shots: Views<Projectile, ShotView>
   private readonly effects: Views<Effect, EffectView>
   private readonly floats: Views<FloatText, FloatView>
+  private readonly pops: Views<Pop, Phaser.GameObjects.Text>
   private readonly flags: Views<RallyFlag, Sprite>
   private readonly zones: Views<Zone, Image[]>
 
@@ -288,6 +291,14 @@ export class BattleView {
         v.digits.obj.destroy()
         v.icon?.destroy()
       },
+    )
+    this.pops = new Views<Pop, Phaser.GameObjects.Text>(
+      (p) =>
+        label(this.scene, Math.round(p.x), Math.round(p.y), p.text, { align: 'center', color: POP_COLOR })
+          .setOrigin(0.5, 0.5)
+          .setRotation(p.angle)
+          .setDepth(DEPTH.floats),
+      (v) => v.destroy(),
     )
     this.flags = new Views<RallyFlag, Sprite>(
       (f) => add.sprite(Math.round(f.x), Math.round(f.y), 'ui/rally_flag').setDepth(f.y),
@@ -513,6 +524,13 @@ export class BattleView {
       if (v.glow) setFrame(v.glow, frame)
     })
     this.floats.sync(w.floats, (f, v) => this.syncFloat(f, v))
+    this.pops.sync(w.pops, (p, v) => {
+      // the word jumps out a little too big, settles, then fades while it drifts up
+      const k = p.t / POP_LIFE
+      v.setScale(k < 0.15 ? 0.6 + (k / 0.15) * 0.6 : Math.max(1, 1.2 - (k - 0.15) * 1.4))
+      v.setY(Math.round(p.y - p.t * 10))
+      v.setAlpha(Phaser.Math.Clamp((1 - k) * 3, 0, 1))
+    })
     this.flags.sync(w.flags, (f, v) => {
       setFrame(v, frameNameAt('ui/rally_flag', 'wave', f.t))
       v.setAlpha(Phaser.Math.Clamp((2.5 - f.t) * 2, 0, 1))
@@ -653,7 +671,7 @@ export class BattleView {
       .setAlpha(alpha * 0.9)
       .setDepth(depth - 0.02)
 
-    const slowed = e.slowT > 0 && !dying
+    const slowed = hasMod(e.mods, 'slow') && !dying
     if (slowed && !v.rune) {
       v.rune = this.scene.add.sprite(x, y, 'effects/slow_rune').play(animKey('effects/slow_rune', 'play')).setAlpha(0.9)
     }
@@ -669,9 +687,9 @@ export class BattleView {
       .setDepth(depth)
     let status = PLAIN
     if (!dying) {
-      if (e.stunT > 0) status = FROZEN_TINT
+      if (isFrozen(e.mods)) status = FROZEN_TINT
       else if (slowed) status = SLOW_TINT
-      else if (e.poisonT > 0) status = POISON_TINT
+      else if (hasMod(e.mods, 'poison')) status = POISON_TINT
       else if (e.enraged) status = RAGE_TINT
     }
     const hit = e.hitAt !== v.lastHit

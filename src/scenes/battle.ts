@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
-import { SCENE, fadeIn, isSwitching, nextDemo, recordWin, save, sfx, type BattleInit } from '../app'
+import { SCENE, fadeIn, isSwitching, nextDemo, recordOutcome, save, sfx, type BattleInit } from '../app'
 import { DEFAULT_DIFFICULTY } from '../data/difficulty'
 import { LEVELS, VIEW_H, VIEW_W } from '../data/levels'
+import { DEFAULT_MODE, isMode, type ModeId } from '../data/modes'
 import { frameCamera, onPixelScale, pixelScale } from '../display'
 import { Session } from '../session'
 import { Bot } from '../sim/bot'
@@ -31,8 +32,12 @@ export class BattleScene extends Phaser.Scene {
   world!: World
   view!: BattleView
 
+  /** the battle that just ended set a new endless record */
+  newRecord = false
+
   private demo = true
   private levelIndex = 0
+  private mode: ModeId = DEFAULT_MODE
   private bot: Bot | null = null
   private acc = 0
   private demoEndT = 0
@@ -52,6 +57,7 @@ export class BattleScene extends Phaser.Scene {
   init(data: Partial<BattleInit>): void {
     this.demo = data.demo ?? true
     this.levelIndex = Phaser.Math.Clamp(data.levelIndex ?? 0, 0, LEVELS.length - 1)
+    this.mode = isMode(data.mode) ? data.mode : DEFAULT_MODE
   }
 
   create(): void {
@@ -62,13 +68,21 @@ export class BattleScene extends Phaser.Scene {
     this.viewY = 0
     this.zoomTween = null
     this.blur = null
+    this.newRecord = false
 
     if (this.demo) {
       this.session = null
       this.world = new World(LEVELS[this.levelIndex], DEFAULT_DIFFICULTY)
       this.bot = new Bot(this.world)
     } else {
-      this.session = new Session(this.levelIndex, sfx, recordWin, save.difficulty)
+      this.session = new Session(
+        this.levelIndex,
+        sfx,
+        (outcome) => {
+          this.newRecord = recordOutcome(outcome)
+        },
+        { difficulty: save.difficulty, mode: this.mode, upgrades: save.upgrades },
+      )
       this.world = this.session.world
       this.bot = null
     }

@@ -1,6 +1,7 @@
 import type { Point } from '../assets'
 import type { EnemyDef } from '../data/enemies'
-import type { SpecId, TowerType } from '../data/towers'
+import type { PopDef, SpecId, TowerType } from '../data/towers'
+import type { ActiveMod } from './mods'
 import type { PathData } from './path'
 
 /**
@@ -32,15 +33,8 @@ export interface Enemy {
   blocker: Soldier | null
   cd: number
   hitDone: boolean
-  slowT: number
-  /** speed multiplier while slowT runs */
-  slowFactor: number
-  poisonT: number
-  poisonDps: number
-  /** seconds left frozen in place */
-  stunT: number
-  /** seconds during which a new stun does not take */
-  stunGuard: number
+  /** timed effects on it: slow, poison, stun, haste (see sim/mods.ts) */
+  mods: ActiveMod[]
   /** armor right now, 0..1: the clamped rawArmor */
   armor: number
   /** armor before clamping, so effects that raise or lower it can be lifted in any order */
@@ -49,11 +43,8 @@ export interface Enemy {
   dmgFactor: number
   /** multiplier on the damage it takes */
   takenFactor: number
-  /** multiplier on its walking speed, besides the timed slows and auras */
+  /** multiplier on its walking speed, besides the timed effects */
   speedFactor: number
-  /** seconds left of a speed aura, and its multiplier */
-  hasteT: number
-  hasteMult: number
   enraged: boolean
   /** seconds since something last hurt it */
   hurtT: number
@@ -71,6 +62,12 @@ export interface Enemy {
   summoned: boolean
   age: number
   removed: boolean
+}
+
+/** Who dealt a blow: a tower, a soldier (with the barracks that trained it, if any), or neither for a spell. */
+export interface Source {
+  tower: Tower | null
+  soldier: Soldier | null
 }
 
 export type SoldierKind = 'soldier' | 'hero' | 'reinforcement'
@@ -218,6 +215,10 @@ export interface Projectile {
   /** blasts also catch flying enemies */
   hitsAir: boolean
   mods: HitMods
+  /** who fired it */
+  source: Source
+  /** the word that may burst out where it lands */
+  pop: PopDef | null
   angle: number
   removed: boolean
 }
@@ -230,6 +231,7 @@ export interface Zone {
   dps: number
   t: number
   life: number
+  source: Source
 }
 
 export type EffectLayer = 'ground' | 'top'
@@ -250,6 +252,16 @@ export interface FloatText {
   y: number
   t: number
   icon: FloatIcon
+}
+
+/** A word bursting out of a blow, slightly tilted. */
+export interface Pop {
+  text: string
+  x: number
+  y: number
+  t: number
+  /** radians */
+  angle: number
 }
 
 export interface RallyFlag {

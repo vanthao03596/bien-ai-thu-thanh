@@ -13,7 +13,7 @@ npm run dev        # mở http://localhost:5173
 Các lệnh khác:
 
 ```
-npm test           # 143 bài test cho đường đi, cơ chế trận đấu, kỹ năng quái, nhánh tháp, phiên chơi, gợi ý, dữ liệu màn chơi và cân bằng
+npm test           # 233 bài test cho đường đi, cơ chế trận đấu, kỹ năng quái, nhánh tháp, luật chồng hiệu ứng, các chế độ chơi, cây sao, vô tận, phiên chơi, gợi ý, dữ liệu màn chơi và cân bằng
 npm run balance    # in bảng cân bằng: DPS trên vàng của tháp, vàng thưởng theo máu, ngân sách từng màn, kết quả của dàn bot
 npm run build      # kiểm tra kiểu rồi đóng gói vào dist/ (đặt lên host tĩnh nào cũng chạy)
 npm run preview    # chạy thử bản dist/
@@ -21,7 +21,7 @@ npm run preview    # chạy thử bản dist/
 
 ## Cách chơi
 
-- Chọn độ khó (Dễ, Thường, Khó) ở màn chọn màn chơi. Sao được tính riêng cho từng độ khó.
+- Chọn độ khó (Dễ, Thường, Khó) và chế độ chơi ở màn chọn màn chơi. Sao và kỷ lục được ghi riêng cho từng độ khó.
 - Bấm vào ô đất trống để mở vòng chọn tháp, bấm vào tháp để nâng cấp, bán, hoặc đặt điểm tập kết (doanh trại).
 - Bán tháp hoàn 60% số vàng đã chi. Trước khi gọi đợt quái đầu tiên thì hoàn đủ 100%, cứ thoải mái thử bố cục.
 - Tháp cấp 3 hiện hai nút chọn nhánh chuyên biệt. Chọn xong, hai nút đó thành hai kỹ năng, mỗi kỹ năng mua được ba bậc.
@@ -73,7 +73,39 @@ Quái có kỹ năng riêng, mỗi loại cần một cách đối phó:
 | Chúa chằn, Quỷ vương | Boss: dậm đất hạ lính; Quỷ vương còn gọi dơi và khóa tháp |
 
 Giữ được từ 18/20 mạng trở lên là ba sao, từ 8 mạng là hai sao (tính riêng cho từng độ khó). Thắng màn cuối sẽ hiện bảng tổng kết cả chiến dịch.
-Số sao, độ khó đang chọn và các gợi ý đã xem lưu trong `localStorage`; nút "Xóa tiến độ" ở màn chọn màn chơi xóa cả hai (bấm hai lần để xác nhận).
+Bảng kết quả của mọi trận ghi thêm loại tháp hạ nhiều quái nhất và gây sát thương nhiều nhất.
+
+### Chế độ chơi
+
+Mỗi bản đồ chơi được theo bốn cách. Ba chế độ sau mở khi đã thắng chiến dịch của chính bản đồ đó (ở độ khó nào cũng được):
+
+| Chế độ | Luật | Thưởng |
+|---|---|---|
+| Chiến dịch | Màn chơi gốc, 20 mạng | tối đa 3 sao |
+| Tử thủ | 1 mạng, 6 đợt quái dữ, đủ mọi loại tháp của màn | 1 sao |
+| Vây hãm | 1 mạng, một đợt quái rất dài, vài loại tháp bị khóa (màn 1 chỉ còn cung và phép, màn 2 mất tháp phép, màn 3 mất tháp cung) | 1 sao |
+| Vô tận | 10 mạng, không có đợt cuối, mở sẵn cả tám nhánh cấp 4 | ghi kỷ lục đợt và điểm |
+
+Vô tận ghép đợt quái từ một kho đợt viết tay chia bốn bậc: cứ 10 đợt là một đợt boss, sau đó lên một bậc. Máu và sát thương của
+quái tăng dần theo số đợt kể từ khi loại quái đó xuất hiện lần đầu, còn vàng thưởng giảm dần. Gọi đợt sớm được thưởng vàng gấp 3.5
+lần chiến dịch. Điểm tính theo số đợt, theo quái hạ được (quái càng trâu, giáp càng dày, chạy càng nhanh thì càng nhiều điểm) và
+theo thời gian gọi sớm. Rời trận giữa chừng vẫn ghi kỷ lục.
+
+### Cây sao
+
+Sao là tiền để mua nâng cấp vĩnh viễn ở màn "Cây sao" (nút cạnh "Quay lại" trong màn chọn màn chơi). Mỗi bản đồ cho tối đa 5 sao:
+3 sao chiến dịch và 1 sao cho mỗi thử thách, tính theo thành tích tốt nhất trên mọi độ khó. Cây có bốn nhánh (Cung thuật, Pháp
+thuật, Hỏa khí, Binh pháp), mỗi nhánh ba bậc, mỗi bậc 1 sao và chỉ thêm vài phần trăm một chỉ số hoặc một hiệu ứng nhỏ. Mua hết cây
+cần 12 trong 15 sao, nên chỉ đi chiến dịch (9 sao) là chưa đủ. "Hoàn sao" trả lại toàn bộ sao để chia lại.
+Trong Tử thủ và Vây hãm chỉ bậc đầu của mỗi nhánh có hiệu lực, để thử thách khó như nhau với mọi người chơi.
+
+### Thẻ thông báo
+
+Lần đầu gặp một loại quái, một thẻ ở góc trên phải giới thiệu nó kèm cách trị (mỗi loại chỉ một lần trong cả game). Người thiết kế
+màn cũng gắn được lời khuyên vào từng đợt quái (trường `tip`); lời khuyên của đợt đầu hiện ngay khi vào màn. Bấm vào thẻ để đóng.
+
+Số sao, kỷ lục, cây sao, độ khó đang chọn, các loại quái đã gặp và các gợi ý đã xem lưu trong `localStorage`; nút "Xóa tiến độ" ở
+màn chọn màn chơi xóa tất cả trừ thiết lập âm thanh và độ khó (bấm hai lần để xác nhận).
 
 ## Đưa lên mạng
 
@@ -90,14 +122,22 @@ src/
   app.ts           trạng thái dùng chung (âm thanh, tiến độ) và chuyển cảnh có fade
   display.ts       tỉ lệ pixel nguyên: canvas luôn là bội số của 768x432, camera zoom theo
   assets.ts        đọc JSON của bộ asset, lập danh sách file cho loader của Phaser
-  session.ts       một lượt chơi: mô phỏng + lựa chọn của người chơi, không phụ thuộc Phaser
+  session.ts       một lượt chơi: mô phỏng + lựa chọn của người chơi + kết quả trận, không phụ thuộc Phaser
   tips.ts          gợi ý cho người chơi mới, chọn theo tình hình trên sân, không phụ thuộc Phaser
+  notices.ts       hàng chờ thẻ thông báo: quái mới gặp và lời khuyên gắn vào đợt quái
   orientation.ts   tạm dừng và nút xoay màn hình khi điện thoại cầm dọc (lời nhắc nằm trong index.html)
   audio.ts         hiệu ứng âm thanh tổng hợp bằng WebAudio, phát qua sound manager của Phaser
-  save.ts          lưu số sao và các gợi ý đã xem
+  save.ts          định dạng lưu: sao, thử thách đã thắng, kỷ lục vô tận, cây sao, quái đã gặp, gợi ý đã xem
   data/            chỉ số quái và kỹ năng của chúng, tháp, nhánh cấp 4, tướng, phép, độ khó và ba màn chơi
+    modes.ts       bốn chế độ chơi; resolveLevel() biến một màn thành màn của chế độ đó
+    upgrades.ts    cây sao và những hệ số nó đưa vào trận
+    endless.ts     vô tận: bảng tăng trưởng chỉ số quái và kho đợt quái viết tay
   sim/             mô phỏng trận đấu, không phụ thuộc trình duyệt nên test được bằng Node
-    world.ts       quái, lính, tháp, đạn, đợt quái, phép, hiệu ứng trạng thái (chậm, độc, choáng, mòn giáp)
+    world.ts       quái, lính, tháp, đạn, đợt quái, phép
+    mods.ts        hiệu ứng tạm thời trên quái (chậm, độc, choáng, thúc quân) và luật chồng hiệu ứng dùng chung
+    bus.ts         event bus kèm dữ liệu: trận đấu chỉ phát tín hiệu, điểm số, thống kê và thẻ thông báo nghe từ ngoài
+    stats.ts       thống kê trận: số quái hạ và sát thương theo từng loại tháp, tướng, phép
+    endless.ts     ghép đợt quái vô tận từ kho và tính điểm
     path.ts        đường đi bo góc, tô ô đường
     bot.ts         người chơi tự động (màn tiêu đề và test cân bằng)
     balance.ts     số đo cân bằng tính từ dữ liệu: DPS trên vàng, vàng theo máu, ngân sách màn chơi
@@ -105,7 +145,7 @@ src/
     boot.ts        nạp asset kèm thanh tiến độ, đăng ký animation và font số
     battle.ts      chiến trường: chạy mô phỏng, camera (zoom, kéo, rung), filter
     hud.ts         giao diện trong trận và toàn bộ thao tác của người chơi
-    menu.ts        màn tiêu đề và chọn màn, vẽ đè lên trận đấu do bot chơi
+    menu.ts        màn tiêu đề, chọn màn (độ khó, chế độ) và cây sao, vẽ đè lên trận đấu do bot chơi
   view/
     battle-view.ts sprite của mọi thứ trên sân, đồng bộ từ mô phỏng mỗi frame
     map.ts         dựng nền tile thành texture, rải cây cỏ
@@ -151,6 +191,15 @@ Sát thương có bốn loại. Giáp và kháng phép là phần trăm bị ch�
   các màn: hiện là 5.8, 6.9 và 7.9 ở mức Thường.
 - Dàn bốn bot (khác nhau ở thứ tự xây) chơi cả ba màn ở cả ba độ khó, đo số mạng để lọt. Dùng nó để so trước và sau mỗi lần
   chỉnh số, vì kết quả của một bot đơn lẻ dao động rất mạnh.
+- Tử thủ và Vây hãm cũng được dàn bot đó đo (`tests/modes.test.ts`): ở mức Dễ bot giỏi nhất chỉ để lọt vài con, ở mức Khó không
+  bot nào qua mà không mất mạng. Các số này mới chỉ chỉnh bằng bot, chưa qua người chơi thử.
+- Hiệu ứng tạm thời trên quái là một danh sách chung (`sim/mods.ts`) với một luật chồng duy nhất: khác loại thì chồng tự do
+  (tốc độ nhân với nhau), cùng loại thì cái mạnh hơn thay cái yếu, cái bằng nhau làm mới thời gian (không bao giờ rút ngắn),
+  cái yếu hơn bị từ chối. Một hiệu ứng có thể cấm hiệu ứng khác (`bans`): choáng để lại một lớp bảo vệ cấm choáng tiếp.
+- Lính phụ (đang đánh hôi một con quái đã có người chặn) tự tách sang con chưa ai chặn, nên ba lính chặn được ba con. Riêng một
+  điều: lính không bỏ con to để đuổi con nhỏ hơn (so theo số mạng con quái lấy đi), nếu không boss sẽ chỉ còn một lính giữ.
+- Chữ nổ khi đánh trúng (`pop` trong `data/towers.ts`): tháp bắn nhanh chỉ hiện chữ cho phát kết liễu. Chữ dùng bộ số ngẫu nhiên
+  riêng nên không làm lệch diễn biến trận đấu.
 
 ## Thêm màn chơi
 
@@ -161,6 +210,10 @@ Thêm một `LevelDef` vào `src/data/levels.ts`:
 - `plots`: toạ độ các ô xây tháp. `water` và `bridges` cho sông hồ.
 - `waves`: mỗi đợt gồm các nhóm `g(loại quái, số lượng, giãn cách, trễ, đường)`.
 - `specs`: các nhánh cấp 4 được mở ở màn này. Bỏ trống thì tháp dừng ở cấp 3.
+- `modes`: hai thử thách `laststand` (Tử thủ) và `siege` (Vây hãm), mỗi cái có `lives`, `gold`, `waves`, `lockedTowers`, tùy chọn
+  `lockedSpecs` và `maxUpgradeTier` (bậc cây sao cao nhất được tính).
+- `endless`: vàng và số mạng đầu trận của chế độ Vô tận. Kho đợt quái và bảng tăng trưởng dùng chung nằm ở `src/data/endless.ts`.
+- Mỗi đợt quái nhận thêm `tip`: lời khuyên hiện thành thẻ đúng lúc đợt đó được gọi.
 
 Cây, bụi, đá và hoa được rải tự động theo `seed`, tránh đường đi, ô xây và giao diện. Chạy `npm test` để kiểm tra ô xây có nằm đè lên đường hay ngoài tầm với không.
 
@@ -168,6 +221,7 @@ Cây, bụi, đá và hoa được rải tự động theo `seed`, tránh đư�
 
 Thêm một mục vào `ENEMIES` trong `src/data/enemies.ts`. Quái mới có thể dùng lại sheet có sẵn và phân biệt bằng `tint`, `scale`, `alpha`.
 Máu ghi ở mức Khó, vàng thưởng lấy theo máu (xem mục Cân bằng, test sẽ báo nếu lệch).
+Trường `intro` là câu trên thẻ "Quái mới": nó làm gì và trị bằng gì.
 Trường `abilities` nhận một danh sách kỹ năng, mô phỏng xử lý chung cho mọi loại quái:
 
 | `kind` | Tác dụng |

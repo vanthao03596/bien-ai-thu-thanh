@@ -1,3 +1,4 @@
+import { DEFAULT_MODE } from '../data/modes'
 import Phaser from 'phaser'
 import { SCENE, initAudio, type BattleInit, type MenuInit } from '../app'
 import { anim, assetFiles, digits, sheet, sheetKeys } from '../assets'
@@ -67,7 +68,7 @@ export class BootScene extends Phaser.Scene {
     createFxTextures(this)
     initAudio(this.game)
 
-    const battle: BattleInit = { levelIndex: 0, demo: true }
+    const battle: BattleInit = { levelIndex: 0, mode: DEFAULT_MODE, demo: true }
     const menu: MenuInit = { screen: 'title' }
     this.scene.launch(SCENE.battle, battle)
     this.scene.launch(SCENE.menu, menu)

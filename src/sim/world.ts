@@ -1,7 +1,9 @@
 import { anim, animDuration, hasAnim, markerTime, sheet, type Point } from '../assets'
 import type { Difficulty } from '../data/difficulty'
+import { ENDLESS, progressDef } from '../data/endless'
 import { abilityOf, enemiesFor, type EnemyAbility, type EnemyDef, type EnemyType } from '../data/enemies'
-import { type LevelDef, type WaveGroup } from '../data/levels'
+import { type LevelDef, type WaveDef, type WaveGroup } from '../data/levels'
+import { DEFAULT_MODE, resolveLevel, upgradeCap, type ModeId } from '../data/modes'
 import {
   FROST_SLOW,
   HERO,
@@ -22,11 +24,16 @@ import {
   TOWERS,
   towerSheet,
   towerStats,
+  type PopDef,
   type SkillId,
   type SpecId,
   type TowerStats,
   type TowerType,
 } from '../data/towers'
+import { NO_BOOSTS, boostsFor, type Boosts, type UpgradeTiers } from '../data/upgrades'
+import { EventBus } from './bus'
+import { EndlessDirector, EndlessScore } from './endless'
+import { addMod, hasteMod, isFrozen, poisonMod, slowMod, speedOf, stunGuardMod, stunMod, tickMods } from './mods'
 import { TILE, buildPath, nearestOnPath, samplePath, type PathData } from './path'
 import type {
   DamageKind,
@@ -39,12 +46,14 @@ import type {
   GameResult,
   HitMods,
   Plot,
+  Pop,
   Projectile,
   ProjectileKind,
   RallyFlag,
   SimEvent,
   Soldier,
   SoldierKind,
+  Source,
   Spawn,
   Tower,
   Zone,
@@ -61,6 +70,14 @@ const SOLDIER_SPEED = 55
 const ABILITY_RETRY = 0.4
 /** absorbs float noise before a hit is rounded down to whole points */
 const EPS = 1e-9
+/** seconds a marching aura lasts once its bearer stops renewing it */
+const AURA_TIME = 0.5
+/** seconds a pop word stays on the field */
+export const POP_LIFE = 0.8
+/** a pop word leans up to this far either way, in radians (21 degrees) */
+const POP_TILT = 0.37
+/** a blow nobody in particular dealt: spells, and enemies shooting back */
+const NO_SOURCE: Source = { tower: null, soldier: null }
 const RALLY_OFFSETS: readonly Point[] = [
   { x: 0, y: -8 },
   { x: -11, y: 5 },
@@ -102,9 +119,21 @@ export function starsFor(lives: number, maxLives: number): number {
   return 1
 }
 
+/** What a battle is played with besides the map and the difficulty. */
+export interface BattleSetup {
+  /** how the map is played; the campaign when left out */
+  mode?: ModeId
+  /** the steps of the star tree the player owns; none when left out */
+  upgrades?: UpgradeTiers
+}
+
 export class World {
+  /** the map with the lives, gold, waves and towers of the mode being played */
   readonly level: LevelDef
   readonly difficulty: Difficulty
+  readonly mode: ModeId
+  /** tells listeners outside the fighting code what happens, with the objects involved */
+  readonly bus = new EventBus()
   readonly paths: PathData[]
   readonly plots: Plot[]
   readonly gate: Point
@@ -116,6 +145,7 @@ export class World {
   projectiles: Projectile[] = []
   effects: Effect[] = []
   floats: FloatText[] = []
+  pops: Pop[] = []
   flags: RallyFlag[] = []
   zones: Zone[] = []
   events: SimEvent[] = []
@@ -135,21 +165,44 @@ export class World {
 
   private spawnQueue: Spawn[] = []
   private readonly rng: () => number
+  /** random numbers for things that are only seen (pop words): they must never shift the battle itself */
+  private readonly fxRng: () => number
   private nextId = 1
   /** the enemy table with the difficulty already applied */
   private readonly defs: Record<EnemyType, EnemyDef>
+  /** what the star tree is worth in this battle */
+  private readonly boosts: Boosts
+  /** endless only: the wave the director has composed to come next */
+  private composed: WaveDef | null = null
+  // endless mode
+  private readonly director: EndlessDirector | null = null
+  private readonly scoreboard: EndlessScore | null = null
+  private readonly earlyCallMult: number = 1
+  /** the wave every enemy type first entered the field in */
+  private readonly firstWave = new Map<EnemyType, number>()
+  /** the grown enemy stats of the running wave */
+  private readonly grown = new Map<EnemyType, EnemyDef>()
 
   /** Without a difficulty the enemies fight exactly as their data is written, which is the hardest setting. */
-  constructor(level: LevelDef, difficulty: Difficulty = 'hard') {
-    this.level = level
+  constructor(level: LevelDef, difficulty: Difficulty = 'hard', setup: BattleSetup = {}) {
+    this.mode = setup.mode ?? DEFAULT_MODE
+    this.level = resolveLevel(level, this.mode)
     this.difficulty = difficulty
+    this.boosts = setup.upgrades ? boostsFor(setup.upgrades, upgradeCap(level, this.mode)) : NO_BOOSTS
     this.defs = enemiesFor(difficulty)
     this.rng = mulberry32(level.seed * 7919 + 13)
+    this.fxRng = mulberry32(level.seed * 104729 + 7)
     this.paths = level.paths.map((wp) => buildPath(wp))
     this.plots = level.plots.map(([px, py], id) => ({ id, x: Math.round(px * TILE), y: Math.round(py * TILE), tower: null }))
     this.gate = { x: level.gate[0] * TILE, y: level.gate[1] * TILE }
-    this.gold = level.startGold
-    this.lives = level.lives
+    this.gold = this.level.startGold
+    this.lives = this.level.lives
+    if (this.mode === 'endless') {
+      this.director = new EndlessDirector(level.seed, this.paths.length)
+      this.composed = this.director.next(0)
+      this.scoreboard = new EndlessScore(this.bus)
+      this.earlyCallMult = ENDLESS.earlyCallBonus
+    }
     this.hero = this.makeSoldier('hero', level.heroStart[0] * TILE, level.heroStart[1] * TILE)
     this.soldiers.push(this.hero)
   }
@@ -172,31 +225,50 @@ export class World {
     this.floats.push({ text, x, y, t: 0, icon })
   }
 
+  /** Waves in the battle; an endless one has no last wave. */
   get waveCount(): number {
-    return this.level.waves.length
+    return this.director ? Infinity : this.level.waves.length
   }
 
+  get endless(): boolean {
+    return this.director !== null
+  }
+
+  /** Points of an endless battle; 0 in every other mode. */
+  get score(): number {
+    return this.scoreboard?.points ?? 0
+  }
+
+  /** The campaign rates the lives that are left; a challenge is simply won. */
   get stars(): number {
-    return starsFor(this.lives, this.level.lives)
+    return this.mode === 'campaign' ? starsFor(this.lives, this.level.lives) : 1
   }
 
   // ------------------------------------------------------------ waves
 
+  /** The wave that starts next, or null after the last one. */
+  private get upcoming(): WaveDef | null {
+    return this.director ? this.composed : (this.level.waves[this.waveIndex + 1] ?? null)
+  }
+
   canCallWave(): boolean {
-    if (this.result !== null) return false
-    if (this.waveIndex >= this.waveCount - 1) return false
+    if (this.result !== null || this.upcoming === null) return false
     return this.waveIndex === -1 || this.waveTimer !== null
   }
 
   /** Gold granted if the next wave is called right now. */
   earlyBonus(): number {
     if (this.waveIndex < 0 || this.waveTimer === null) return 0
-    return Math.floor(this.waveTimer * EARLY_CALL_GOLD_PER_SEC)
+    return Math.floor(this.waveTimer * EARLY_CALL_GOLD_PER_SEC * this.earlyCallMult)
   }
 
-  nextWaveGroups(): WaveGroup[] {
-    const w = this.level.waves[this.waveIndex + 1]
-    return w ? w.groups : []
+  nextWaveGroups(): readonly WaveGroup[] {
+    return this.upcoming?.groups ?? []
+  }
+
+  /** The advice the level designer attached to the next wave, if any. */
+  nextWaveTip(): string | null {
+    return this.upcoming?.tip ?? null
   }
 
   callWave(): boolean {
@@ -208,29 +280,59 @@ export class World {
       this.addFloat(`+${bonus}`, Math.max(24, Math.min(744, start.x)), Math.max(40, Math.min(400, start.y)) - 20, 'coin')
       this.events.push('coin')
     }
+    if (this.waveIndex >= 0 && this.waveTimer !== null) {
+      const paths = new Set(this.nextWaveGroups().map((grp) => grp.path ?? 0)).size
+      this.bus.emit('earlyWaveCalled', { wave: this.waveIndex + 1, reward: bonus, secondsLeft: this.waveTimer, paths })
+    }
     this.startNextWave()
     return true
   }
 
   private startNextWave(): void {
+    const wave = this.upcoming
+    if (!wave) return
     this.waveIndex += 1
-    const wave = this.level.waves[this.waveIndex]
+    this.grown.clear()
     let duration = 0
     for (const grp of wave.groups) {
-      const def = this.defs[grp.type]
+      const def = this.defFor(grp.type)
       for (let i = 0; i < grp.count; i++) {
         this.spawnQueue.push({ at: this.time + grp.at + i * grp.gap, def, path: grp.path ?? 0 })
       }
       duration = Math.max(duration, grp.at + (grp.count - 1) * grp.gap)
     }
     this.spawnQueue.sort((a, b) => a.at - b.at)
-    if (this.waveIndex < this.waveCount - 1) {
+    if (this.director) this.composed = this.director.next(this.waveIndex + 1)
+    if (this.upcoming) {
       this.waveTimer = duration + WAVE_BREAK
       this.waveTimerMax = this.waveTimer
     } else {
       this.waveTimer = null
     }
     this.events.push('wave')
+    this.bus.emit('waveStarted', { wave: this.waveIndex, groups: wave.groups, tip: wave.tip ?? null })
+  }
+
+  /**
+   * The stats an enemy of that type enters the field with right now. Endless
+   * battles grow them wave by wave, counted from the wave the type first
+   * showed up in; everywhere else they are the table of the difficulty.
+   */
+  private defFor(type: EnemyType): EnemyDef {
+    const base = this.defs[type]
+    if (!this.director) return base
+    let def = this.grown.get(type)
+    if (!def) {
+      const wave = Math.max(0, this.waveIndex)
+      let first = this.firstWave.get(type)
+      if (first === undefined) {
+        first = wave
+        this.firstWave.set(type, first)
+      }
+      def = progressDef(base, wave - first, wave)
+      this.grown.set(type, def)
+    }
+    return def
   }
 
   private updateWaves(dt: number): void {
@@ -246,7 +348,7 @@ export class World {
 
   /** Puts an enemy of that kind on a road, with the stats of the current difficulty. */
   spawnEnemy(def: EnemyDef, pathIndex: number, dist = 0): Enemy {
-    return this.spawnOn(this.defs[def.type], this.paths[Math.min(pathIndex, this.paths.length - 1)], dist)
+    return this.spawnOn(this.defFor(def.type), this.paths[Math.min(pathIndex, this.paths.length - 1)], dist)
   }
 
   private spawnOn(def: EnemyDef, path: PathData, dist: number): Enemy {
@@ -269,19 +371,12 @@ export class World {
       blocker: null,
       cd: 0,
       hitDone: false,
-      slowT: 0,
-      slowFactor: 1,
-      poisonT: 0,
-      poisonDps: 0,
-      stunT: 0,
-      stunGuard: 0,
+      mods: [],
       armor: def.armor,
       rawArmor: def.armor,
       dmgFactor: 1,
       takenFactor: 1,
       speedFactor: 1,
-      hasteT: 0,
-      hasteMult: 1,
       enraged: false,
       hurtT: 99,
       hitAt: -1,
@@ -334,25 +429,18 @@ export class World {
 
   /** Current walking speed, with every slow, aura and rage applied. */
   enemySpeed(e: Enemy): number {
-    let speed = e.def.speed * e.speedFactor
-    if (e.slowT > 0) speed *= e.slowFactor
-    if (e.hasteT > 0) speed *= e.hasteMult
-    return speed
+    return e.def.speed * e.speedFactor * speedOf(e.mods)
   }
 
-  /** Timers, damage over time and the abilities that need no casting. */
+  /** Timed effects, damage over time and the abilities that need no casting. */
   private tickStatus(e: Enemy, dt: number): void {
     e.hurtT += dt
-    if (e.slowT > 0) e.slowT -= dt
-    if (e.hasteT > 0) e.hasteT -= dt
-    if (e.stunGuard > 0) e.stunGuard -= dt
-    if (e.stunT > 0) e.stunT -= dt
-    if (e.poisonT > 0) {
-      const step = Math.min(dt, e.poisonT)
-      e.poisonT -= dt
-      this.damageEnemy(e, e.poisonDps * step, 'true', 0, true)
+    for (const m of e.mods) {
+      if (m.def.dps === undefined) continue
+      this.damageEnemy(e, m.def.dps * Math.min(dt, m.left), 'true', 0, true, m.source ?? NO_SOURCE)
       if (!enemyAlive(e)) return
     }
+    tickMods(e.mods, dt)
     const list = e.def.abilities
     if (!list) return
     for (let i = 0; i < list.length; i++) {
@@ -371,13 +459,14 @@ export class World {
             this.events.push('enrage')
           }
           break
-        case 'haste':
+        case 'haste': {
+          const aura = hasteMod(a.speed, AURA_TIME)
           for (const o of this.enemies) {
             if (o === e || !enemyAlive(o) || Math.hypot(o.x - e.x, o.y - e.y) > a.radius) continue
-            o.hasteMult = o.hasteT > 0 ? Math.max(o.hasteMult, a.speed) : a.speed
-            o.hasteT = 0.5
+            addMod(o.mods, aura)
           }
           break
+        }
         default:
           break
       }
@@ -394,7 +483,7 @@ export class World {
     this.tickStatus(e, dt)
     if (!enemyAlive(e)) return
     // frozen solid: neither the body nor its animation moves
-    if (e.stunT > 0) return
+    if (isFrozen(e.mods)) return
     e.animT += dt
 
     switch (e.state) {
@@ -423,7 +512,7 @@ export class World {
             this.events.push('melee')
             const thorns = b.owner ? this.skillRank(b.owner, 'thorns') : 0
             if (thorns > 0) {
-              this.damageEnemy(e, SKILLS.thorns.dmg[thorns - 1], 'true')
+              this.damageEnemy(e, SKILLS.thorns.dmg[thorns - 1], 'true', 0, false, { tower: b.owner, soldier: b })
               if (!enemyAlive(e)) return
             }
           }
@@ -470,6 +559,7 @@ export class World {
           this.leakT = this.time
           this.addFloat(`-${e.def.lives}`, this.gate.x, this.gate.y - 60, 'heart')
           this.events.push('leak')
+          this.bus.emit('enemyLeaked', { enemy: e, lives: e.def.lives })
           return
         }
         this.placeOnPath(e)
@@ -549,7 +639,7 @@ export class World {
       }
       case 'summon': {
         e.castsLeft[e.casting] -= 1
-        const def = this.defs[a.type]
+        const def = this.defFor(a.type)
         for (let i = 0; i < a.count; i++) {
           const dist = Math.max(0, Math.min(e.path.length - 1, e.dist + this.rand(-16, 16)))
           const child = this.spawnOn(def, e.path, dist)
@@ -639,7 +729,7 @@ export class World {
     this.addEffect('effects/heal', e.x, e.y)
   }
 
-  /** The share of a hit of that kind the enemy shrugs off. pierce is the fraction of armor the hit ignores. */
+  /** The share of a hit of that kind the enemy shrugs off. pierce is the fraction of armor or resistance the hit ignores. */
   private protection(e: Enemy, kind: DamageKind, pierce: number): number {
     switch (kind) {
       case 'physical':
@@ -647,7 +737,7 @@ export class World {
       case 'explosion':
         return (e.armor * (1 - pierce)) / 2
       case 'magic':
-        return e.def.magicRes
+        return e.def.magicRes * (1 - pierce)
       case 'true':
         return 0
     }
@@ -659,17 +749,20 @@ export class World {
    * small hits fail to cross, so heavy armor asks for another kind of tower
    * rather than for more of the same. Damage over time (dot) is a trickle of
    * fractions, is not rounded and does not count as a visible hit.
+   * source is whoever dealt it, for the listeners on the bus.
    * Returns the hit points taken off.
    */
-  damageEnemy(e: Enemy, amount: number, kind: DamageKind, pierce = 0, dot = false): number {
+  damageEnemy(e: Enemy, amount: number, kind: DamageKind, pierce = 0, dot = false, source: Source = NO_SOURCE): number {
     if (!enemyAlive(e)) return 0
     const through = amount * e.takenFactor * (1 - this.protection(e, kind, pierce))
     const dealt = dot ? through : Math.floor(through + EPS)
     if (dealt <= 0) return 0
+    // an overkill only counts for the hit points that were left
+    if (this.bus.heard('enemyDamaged')) this.bus.emit('enemyDamaged', { enemy: e, amount: Math.min(dealt, e.hp), source })
     e.hp -= dealt
     e.hurtT = 0
     if (!dot) e.hitAt = this.time
-    if (e.hp <= 0) this.killEnemy(e)
+    if (e.hp <= 0) this.killEnemy(e, source)
     return dealt
   }
 
@@ -688,31 +781,30 @@ export class World {
     this.addArmor(e, -Math.min(points, Math.max(0, e.rawArmor)))
   }
 
+  /** The stronger slow wins; an equal one keeps the enemy slowed for longer. */
   private applySlow(e: Enemy, factor: number, time: number): void {
-    if (e.slowT <= 0 || factor < e.slowFactor) e.slowFactor = factor
-    e.slowT = Math.max(e.slowT, time)
+    addMod(e.mods, slowMod(factor, time))
   }
 
-  /** Bosses cannot be stunned, and nothing can be stunned twice in a row. */
+  /**
+   * Bosses cannot be stunned, and nothing can be stunned twice in a row: every
+   * stun leaves a guard behind that outlasts it and turns the next one away.
+   */
   private applyStun(e: Enemy, time: number): boolean {
-    if (e.def.boss || e.stunGuard > 0) return false
-    e.stunT = time
-    e.stunGuard = time + STUN_IMMUNITY
+    if (e.def.boss || !addMod(e.mods, stunMod(time))) return false
+    addMod(e.mods, stunGuardMod(time + STUN_IMMUNITY))
     return true
   }
 
-  private applyMods(e: Enemy, mods: HitMods): void {
+  private applyMods(e: Enemy, mods: HitMods, source: Source = NO_SOURCE): void {
     if (!enemyAlive(e)) return
     if (mods.slow) this.applySlow(e, mods.slow.factor, mods.slow.time)
-    if (mods.poison) {
-      e.poisonDps = e.poisonT > 0 ? Math.max(e.poisonDps, mods.poison.dps) : mods.poison.dps
-      e.poisonT = mods.poison.time
-    }
+    if (mods.poison) addMod(e.mods, poisonMod(mods.poison.dps, mods.poison.time), source)
     if (mods.stun) this.applyStun(e, mods.stun)
     if (mods.shred) this.stripArmor(e, mods.shred)
   }
 
-  private killEnemy(e: Enemy): void {
+  private killEnemy(e: Enemy, source: Source): void {
     e.hp = 0
     e.state = 'dying'
     e.anim = 'death'
@@ -725,9 +817,11 @@ export class World {
     }
     this.addEffect('effects/soul', e.x, e.y - e.def.height * 0.5)
     this.events.push(e.def.boss ? 'boss_kill' : 'kill')
+    this.bus.emit('enemyKilled', { enemy: e, source })
+    if (e.def.boss) this.bus.emit('bossKilled', { enemy: e })
     const split = abilityOf(e.def, 'split')
     if (split) {
-      const def = this.defs[split.type]
+      const def = this.defFor(split.type)
       for (let i = 0; i < split.count; i++) {
         const dist = Math.max(0, Math.min(e.path.length - 1, e.dist + (i - (split.count - 1) / 2) * 12))
         const child = this.spawnOn(def, e.path, dist)
@@ -737,12 +831,25 @@ export class World {
     }
   }
 
+  /** Rolls for the word of a blow and lets it burst out at that spot. */
+  private pop(def: PopDef | null, on: PopDef['on'], x: number, y: number): void {
+    if (!def || def.on !== on || this.fxRng() >= def.chance) return
+    const text = def.words[Math.floor(this.fxRng() * def.words.length)]
+    this.pops.push({ text, x, y, t: 0, angle: (this.fxRng() * 2 - 1) * POP_TILT })
+  }
+
+  /** A blow landed on that enemy: the word for a hit, or for a kill when it was the last one. */
+  private popOn(def: PopDef | null, e: Enemy): void {
+    // beside the head, clear of the bounty that rises from a kill
+    this.pop(def, enemyAlive(e) ? 'hit' : 'kill', e.x + (e.id % 2 === 0 ? 16 : -16), e.y - e.def.height - 4)
+  }
+
   // ------------------------------------------------------------ soldiers
 
   private makeSoldier(kind: SoldierKind, x: number, y: number): Soldier {
     const isHero = kind === 'hero'
     const b = TOWERS.barracks
-    const hp = isHero ? HERO.hp : kind === 'reinforcement' ? SPELLS.reinforce.hp : b.soldierHp[0]
+    const hp = isHero ? Math.round(HERO.hp * this.boosts.heroHp) : kind === 'reinforcement' ? SPELLS.reinforce.hp : b.soldierHp[0]
     return {
       id: this.nextId++,
       kind,
@@ -766,7 +873,7 @@ export class World {
       cd: 0,
       hitDone: false,
       idleT: 0,
-      life: kind === 'reinforcement' ? SPELLS.reinforce.life : Infinity,
+      life: kind === 'reinforcement' ? this.reinforceLife : Infinity,
       respawnT: 0,
       specialCd: isHero ? HERO.specialCd * 0.5 : Infinity,
       forced: false,
@@ -789,7 +896,12 @@ export class World {
     if (e && e.blocker === s) e.blocker = this.findOtherAttacker(e, s)
   }
 
-  private acquireTarget(s: Soldier): void {
+  /**
+   * The enemy a soldier should fight, among those around the spot it guards:
+   * the unblocked one closest to the gate, otherwise (unless only free ones
+   * are asked for) the nearest one somebody already holds.
+   */
+  private pickEnemy(s: Soldier, freeOnly: boolean): Enemy | null {
     let free: Enemy | null = null
     let freeRemaining = Infinity
     let busy: Enemy | null = null
@@ -809,8 +921,10 @@ export class World {
         busy = e
       }
     }
-    const e = free ?? busy
-    if (!e) return
+    return free ?? (freeOnly ? null : busy)
+  }
+
+  private engage(s: Soldier, e: Enemy): void {
     s.target = e
     s.side = s.x <= e.x ? -1 : 1
     if (!e.blocker) {
@@ -819,6 +933,26 @@ export class World {
     } else {
       s.slotDy = s.id % 2 === 0 ? 5 : -5
     }
+  }
+
+  private acquireTarget(s: Soldier): void {
+    const e = this.pickEnemy(s, false)
+    if (e) this.engage(s, e)
+  }
+
+  /**
+   * A soldier who only helps out on an enemy somebody else holds leaves it for
+   * one that nobody holds yet. That is how three soldiers split up over three
+   * enemies instead of crowding one while the others walk past.
+   */
+  private spreadOut(s: Soldier): void {
+    const now = s.target
+    if (!now || now.blocker === s) return
+    const free = this.pickEnemy(s, true)
+    // nobody drops a big enemy to chase a smaller one
+    if (!free || free.def.lives < now.def.lives) return
+    this.releaseTarget(s)
+    this.engage(s, free)
   }
 
   /** Moves the unit toward a point. Returns true once it stands on it. */
@@ -899,9 +1033,11 @@ export class World {
             const near = this.enemies.filter(
               (o) => o !== main && enemyAlive(o) && !o.def.flying && Math.hypot(o.x - main.x, o.y - main.y) <= SKILLS.cleave.radius + o.def.radius,
             )
-            for (const o of near) this.damageEnemy(o, dmg * SKILLS.cleave.part[cleave - 1], 'physical')
+            for (const o of near) this.damageEnemy(o, dmg * SKILLS.cleave.part[cleave - 1], 'physical', 0, false, { tower: s.owner, soldier: s })
           }
-          this.damageEnemy(s.target, dmg, 'physical')
+          const struck = s.target
+          this.damageEnemy(struck, dmg, 'physical', 0, false, { tower: s.owner, soldier: s })
+          this.popOn(TOWERS.barracks.pop, struck)
           this.events.push('melee')
         }
       }
@@ -913,7 +1049,10 @@ export class World {
       return
     }
 
-    if (!s.target && !s.forced) this.acquireTarget(s)
+    if (!s.forced) {
+      if (s.target) this.spreadOut(s)
+      else this.acquireTarget(s)
+    }
 
     const e = s.target
     if (e) {
@@ -980,7 +1119,8 @@ export class World {
     const sy = s.y - 14
     const ty = best.y - best.def.height * 0.5
     const d = Math.hypot(best.x - s.x, ty - sy)
-    this.spawnProjectile('arrow', s.x, sy, best.x, ty, best, Math.max(0.1, d / 260), d * 0.08, SKILLS.knives.dmg[knives - 1], 'physical')
+    const knife = this.spawnProjectile('arrow', s.x, sy, best.x, ty, best, Math.max(0.1, d / 260), d * 0.08, SKILLS.knives.dmg[knives - 1], 'physical')
+    knife.source = { tower: owner, soldier: s }
     this.events.push('arrow')
   }
 
@@ -989,7 +1129,7 @@ export class World {
       (e) => enemyAlive(e) && !e.def.flying && Math.hypot(e.x - hero.x, e.y - hero.y) <= HERO.specialRadius,
     )
     for (const e of near) {
-      this.damageEnemy(e, HERO.specialDmg, 'magic')
+      this.damageEnemy(e, HERO.specialDmg, 'magic', 0, false, { tower: null, soldier: hero })
       this.addEffect('effects/magic_hit', e.x, e.y - e.def.height * 0.5)
     }
     hero.hp = Math.min(hero.maxHp, hero.hp + hero.maxHp * HERO.specialHeal)
@@ -1027,8 +1167,39 @@ export class World {
 
   // ------------------------------------------------------------ towers
 
+  /** The numbers a tower of that type, level and branch fights with in this battle, star upgrades included. */
+  stats(type: TowerType, level: number, spec: SpecId | null): TowerStats {
+    const base = towerStats(type, level, spec)
+    const b = this.boosts
+    if (b === NO_BOOSTS) return base
+    switch (type) {
+      case 'archer':
+        return { ...base, range: Math.round(base.range * b.archerRange), cooldown: base.cooldown * b.archerCooldown }
+      case 'mage':
+        return {
+          ...base,
+          range: Math.round(base.range * b.mageRange),
+          dmg: [Math.round(base.dmg[0] * b.mageDmg), Math.round(base.dmg[1] * b.mageDmg)],
+        }
+      case 'artillery':
+        return { ...base, splash: Math.round(base.splash * b.blast), cooldown: base.cooldown * b.artilleryCooldown }
+      case 'barracks':
+        return { ...base, soldierHp: Math.round(base.soldierHp * b.soldierHp) }
+    }
+  }
+
   statsOf(t: Tower): TowerStats {
-    return towerStats(t.type, t.level, t.spec)
+    return this.stats(t.type, t.level, t.spec)
+  }
+
+  /** Seconds the called reinforcements stay on the field in this battle. */
+  get reinforceLife(): number {
+    return SPELLS.reinforce.life * this.boosts.reinforceLife
+  }
+
+  /** Seconds a spell takes to recharge in this battle. */
+  spellCooldown(spell: 'fire' | 'reinforce'): number {
+    return spell === 'fire' ? SPELLS.fire.cooldown * this.boosts.fireCooldown : SPELLS.reinforce.cooldown
   }
 
   towerRange(t: Tower): number {
@@ -1095,6 +1266,7 @@ export class World {
     plot.tower = t
     this.towers.push(t)
     this.events.push('build')
+    this.bus.emit('towerBuilt', { tower: t })
     return t
   }
 
@@ -1205,6 +1377,7 @@ export class World {
     this.addEffect('effects/smoke_puff', t.x, t.y - 8)
     this.addFloat(`+${value}`, t.x, t.y - 40, 'coin')
     this.events.push('sell')
+    this.bus.emit('towerSold', { tower: t, refund: value })
     return true
   }
 
@@ -1242,7 +1415,7 @@ export class World {
       if (s && s.state === 'dead') {
         s.removed = true
         slot.soldier = null
-        slot.respawnT = SOLDIER_RESPAWN
+        slot.respawnT = SOLDIER_RESPAWN * this.boosts.respawn
       }
       if (!slot.soldier) slot.respawnT -= dt
     }
@@ -1375,7 +1548,7 @@ export class World {
       let cooldown: number | null = null
       if (id === 'volley') {
         const targets = this.enemiesInRange(t, range, true).slice(0, SKILLS.volley.targets[rank - 1])
-        targets.forEach((e, i) => this.shootArrow(t, e, i % Math.max(1, t.units.length)))
+        targets.forEach((e, i) => void this.shootArrow(t, e, i % Math.max(1, t.units.length)))
         if (targets.length > 0) {
           cooldown = SKILLS.volley.cooldown
           this.events.push('arrow')
@@ -1399,6 +1572,8 @@ export class World {
           for (let i = 0; i < n; i++) {
             const p = this.shootRocket(t, targets[i % targets.length])
             p.t = -i * 0.12
+            // one word for the whole salvo
+            if (i > 0) p.pop = null
           }
           cooldown = SKILLS.barrage.cooldown
           this.events.push('cannon')
@@ -1412,7 +1587,7 @@ export class World {
     }
   }
 
-  private shootArrow(t: Tower, target: Enemy, unit: number): void {
+  private shootArrow(t: Tower, target: Enemy, unit: number): Projectile {
     const sh = sheet(towerSheet(t.type, t.level))
     const slot = sh.unitSlots[unit] ?? { x: sh.ax, y: 24 }
     const sx = t.x - sh.ax + slot.x
@@ -1433,8 +1608,9 @@ export class World {
       const cripple = this.skillRank(t, 'cripple')
       if (cripple > 0) mods.slow = { factor: SKILLS.cripple.factor, time: SKILLS.cripple.time[cripple - 1] }
     }
-    const p = this.spawnProjectile('arrow', sx, sy, target.x, hitY, target, Math.max(0.12, d / speed), d * 0.12, dmg, TOWERS[t.type].dmgKind)
+    const p = this.spawnProjectile('arrow', sx, sy, target.x, hitY, target, Math.max(0.12, d / speed), d * 0.12, dmg, TOWERS[t.type].dmgKind, t)
     p.mods = mods
+    return p
   }
 
   private shootBolt(t: Tower, target: Enemy): void {
@@ -1457,8 +1633,9 @@ export class World {
     } else if (t.level >= MAX_LEVEL) {
       mods.slow = { factor: MAGE_SLOW_FACTOR, time: MAGE_SLOW_TIME }
     }
+    if (this.boosts.magePierce > 0) mods.pierce = this.boosts.magePierce
     const speed = t.spec === 'storm' ? 420 : 230
-    const p = this.spawnProjectile('bolt', sx, sy, target.x, hitY, target, Math.max(0.12, d / speed), 0, this.roll(this.statsOf(t).dmg), TOWERS[t.type].dmgKind)
+    const p = this.spawnProjectile('bolt', sx, sy, target.x, hitY, target, Math.max(0.12, d / speed), 0, this.roll(this.statsOf(t).dmg), TOWERS[t.type].dmgKind, t)
     p.mods = mods
   }
 
@@ -1472,12 +1649,12 @@ export class World {
     // lead the shot: aim where a walking target will be when the bomb lands
     let tx = target.x
     let ty = target.y
-    if (target.state === 'walk' && target.stunT <= 0) {
+    if (target.state === 'walk' && !isFrozen(target.mods)) {
       const ahead = samplePath(target.path, Math.min(target.path.length, target.dist + this.enemySpeed(target) * flight))
       tx = ahead.x - ahead.ty * target.lane
       ty = ahead.y + ahead.tx * target.lane
     }
-    const p = this.spawnProjectile('bomb', sx, sy, tx, ty, null, flight, 46, this.roll(stats.dmg), TOWERS[t.type].dmgKind)
+    const p = this.spawnProjectile('bomb', sx, sy, tx, ty, null, flight, 46, this.roll(stats.dmg), TOWERS[t.type].dmgKind, t)
     p.splash = stats.splash
     const cluster = this.skillRank(t, 'cluster')
     if (cluster > 0) p.mods.cluster = SKILLS.cluster.bomblets[cluster - 1]
@@ -1495,7 +1672,7 @@ export class World {
     const sy = t.y - sh.ay + origin.y
     const hitY = target.y - target.def.height * 0.5
     const d = Math.hypot(target.x - sx, hitY - sy)
-    const p = this.spawnProjectile('rocket', sx, sy, target.x, hitY, target, Math.max(0.25, d / 240), 22, this.roll(stats.dmg), TOWERS[t.type].dmgKind)
+    const p = this.spawnProjectile('rocket', sx, sy, target.x, hitY, target, Math.max(0.25, d / 240), 22, this.roll(stats.dmg), TOWERS[t.type].dmgKind, t)
     p.splash = stats.splash
     p.hitsAir = true
     const concuss = this.skillRank(t, 'concuss')
@@ -1506,6 +1683,8 @@ export class World {
   private fire(t: Tower, target: Enemy, unit: number): void {
     if (t.type === 'archer') {
       this.shootArrow(t, target, unit)
+      // star tree: now and then a second arrow follows the first
+      if (this.boosts.archerDouble > 0 && this.rng() < this.boosts.archerDouble) this.shootArrow(t, target, unit).t = -0.09
       this.events.push('arrow')
     } else if (t.type === 'mage') {
       this.shootBolt(t, target)
@@ -1530,10 +1709,13 @@ export class World {
     arc: number,
     dmg: number,
     dmgKind: DamageKind,
+    /** the tower that fires it: the shot is credited to it and carries its pop word */
+    tower: Tower | null = null,
   ): Projectile {
     const p: Projectile = {
       kind, sx, sy, x: sx, y: sy, tx, ty, target, soldier: null, t: 0, dur, arc, dmg, dmgKind,
-      splash: 0, hitsAir: false, mods: {}, angle: Math.atan2(ty - sy, tx - sx), removed: false,
+      splash: 0, hitsAir: false, mods: {}, source: tower ? { tower, soldier: null } : NO_SOURCE,
+      pop: tower ? TOWERS[tower.type].pop : null, angle: Math.atan2(ty - sy, tx - sx), removed: false,
     }
     this.projectiles.push(p)
     return p
@@ -1588,8 +1770,9 @@ export class World {
 
   /** A single-target hit with everything the shot carries. */
   private strike(e: Enemy, p: Projectile): void {
-    this.damageEnemy(e, p.dmg, p.dmgKind, p.mods.pierce ?? 0)
-    this.applyMods(e, p.mods)
+    this.damageEnemy(e, p.dmg, p.dmgKind, p.mods.pierce ?? 0, false, p.source)
+    this.applyMods(e, p.mods, p.source)
+    this.popOn(p.pop, e)
   }
 
   private impact(p: Projectile, hadTarget: Enemy | null): void {
@@ -1635,7 +1818,7 @@ export class World {
       (o) => o !== target && enemyAlive(o) && Math.hypot(o.x - target.x, (o.y - target.y) / RANGE_SQUASH) <= SKILLS.shatter.radius + o.def.radius,
     )
     for (const o of near) {
-      this.damageEnemy(o, p.dmg * part, p.dmgKind)
+      this.damageEnemy(o, p.dmg * part, p.dmgKind, p.mods.pierce ?? 0, false, p.source)
       if (p.mods.slow) this.applyMods(o, { slow: p.mods.slow })
       this.addEffect('effects/magic_hit', o.x, o.y - o.def.height * 0.5)
     }
@@ -1651,7 +1834,9 @@ export class World {
       .slice(0, jumps)
     for (const { o } of near) {
       const arc = this.spawnProjectile('bolt', p.x, p.y, o.x, o.y - o.def.height * 0.5, o, 0.12, 0, p.dmg * SKILLS.chain.part, p.dmgKind)
+      arc.source = p.source
       if (p.mods.shred) arc.mods.shred = p.mods.shred
+      if (p.mods.pierce) arc.mods.pierce = p.mods.pierce
     }
   }
 
@@ -1669,9 +1854,10 @@ export class World {
       if (d <= reach) victims.push({ e, k: 1 - 0.5 * Math.min(1, d / reach) })
     }
     for (const { e, k } of victims) {
-      this.damageEnemy(e, p.dmg * k, p.dmgKind)
-      this.applyMods(e, p.mods)
+      this.damageEnemy(e, p.dmg * k, p.dmgKind, 0, false, p.source)
+      this.applyMods(e, p.mods, p.source)
     }
+    if (victims.length > 0) this.pop(p.pop, victims.some((v) => !enemyAlive(v.e)) ? 'kill' : 'hit', cx, cy - 18)
     const bomblets = p.mods.cluster ?? 0
     const turn = this.rand(0, Math.PI * 2)
     for (let i = 0; i < bomblets; i++) {
@@ -1680,9 +1866,10 @@ export class World {
       const ty = cy + Math.sin(a) * SKILLS.cluster.scatter * RANGE_SQUASH
       const b = this.spawnProjectile('bomb', cx, cy - 4, tx, ty, null, 0.38, 16, p.dmg * SKILLS.cluster.part, p.dmgKind)
       b.splash = SKILLS.cluster.splash
+      b.source = p.source
     }
     const burn = p.mods.burn
-    if (burn) this.zones.push({ x: cx, y: cy, r: burn.radius, dps: burn.dps, t: 0, life: burn.time })
+    if (burn) this.zones.push({ x: cx, y: cy, r: burn.radius, dps: burn.dps, t: 0, life: burn.time, source: p.source })
   }
 
   private updateZone(z: Zone, dt: number): void {
@@ -1690,7 +1877,7 @@ export class World {
     const burning = this.enemies.filter(
       (e) => enemyAlive(e) && !e.def.flying && Math.hypot(e.x - z.x, (e.y - z.y) / RANGE_SQUASH) <= z.r + e.def.radius,
     )
-    for (const e of burning) this.damageEnemy(e, z.dps * dt, 'true', 0, true)
+    for (const e of burning) this.damageEnemy(e, z.dps * dt, 'true', 0, true, z.source)
   }
 
   // ------------------------------------------------------------ spells
@@ -1698,7 +1885,7 @@ export class World {
   castFireRain(x: number, y: number): boolean {
     if (this.result !== null || this.spellCd.fire > 0) return false
     const spec = SPELLS.fire
-    this.spellCd.fire = spec.cooldown
+    this.spellCd.fire = this.spellCooldown('fire')
     for (let i = 0; i < spec.count; i++) {
       const tx = i === 0 ? x : x + this.rand(-spec.scatter, spec.scatter)
       const ty = i === 0 ? y : y + this.rand(-spec.scatter, spec.scatter) * RANGE_SQUASH
@@ -1750,6 +1937,8 @@ export class World {
     this.effects = this.effects.filter((fx) => fx.t < animDuration(anim(fx.sheet, 'play')))
     for (const f of this.floats) f.t += dt
     this.floats = this.floats.filter((f) => f.t < 1)
+    for (const p of this.pops) p.t += dt
+    this.pops = this.pops.filter((p) => p.t < POP_LIFE)
     for (const f of this.flags) f.t += dt
     this.flags = this.flags.filter((f) => f.t < 2.5)
 
@@ -1778,11 +1967,7 @@ export class World {
     if (this.lives <= 0) {
       this.result = 'lose'
       this.events.push('lose')
-    } else if (
-      this.waveIndex >= this.waveCount - 1 &&
-      this.spawnQueue.length === 0 &&
-      this.enemies.length === 0
-    ) {
+    } else if (this.upcoming === null && this.spawnQueue.length === 0 && this.enemies.length === 0) {
       this.result = 'win'
       this.events.push('win')
     }

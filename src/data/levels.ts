@@ -20,7 +20,22 @@ export interface WaveGroup {
 }
 
 export interface WaveDef {
-  groups: WaveGroup[]
+  groups: readonly WaveGroup[]
+  /** advice shown the moment the wave is called (for the first wave: when the level opens) */
+  tip?: string
+}
+
+/** A challenge on a map: its own waves and a few limits, everything else stays the level. */
+export interface ModeDef {
+  lives: number
+  gold: number
+  waves: WaveDef[]
+  /** tower types that cannot be built */
+  lockedTowers: readonly TowerType[]
+  /** branches that stay closed although the level has them */
+  lockedSpecs?: readonly SpecId[]
+  /** highest step of the star tree that counts, so the challenge is the same for every player */
+  maxUpgradeTier?: number
 }
 
 export interface PropDef {
@@ -55,7 +70,16 @@ export interface LevelDef {
   startGold: number
   lives: number
   waves: WaveDef[]
+  /** the two challenges, unlocked by winning the campaign battle on this map */
+  modes: { laststand: ModeDef; siege: ModeDef }
+  /** what an endless battle on this map starts with */
+  endless: { gold: number; lives: number }
 }
+
+/** The whole star tree would decide a challenge: only its first step counts there. */
+const CHALLENGE_TIER = 1
+const ONE_LIFE = 'Chỉ có một mạng: một con quái lọt cổng là thua. Chặn đường trước, gây sát thương sau.'
+const ONE_WAVE = 'Một đợt duy nhất, không có lúc nghỉ. Hãy tiêu hết vàng trước khi gọi quái.'
 
 function g(type: EnemyType, count: number, gap: number, at = 0, path = 0): WaveGroup {
   return { type, count, gap, at, path }
@@ -92,7 +116,7 @@ const meadow: LevelDef = {
   startGold: 260,
   lives: 20,
   waves: [
-    { groups: [g('goblin', 8, 1.3)] },
+    { groups: [g('goblin', 8, 1.3)], tip: 'Quái đi theo đường đất tới cổng thành. Tháp đặt ở khúc cua bắn được lâu nhất.' },
     { groups: [g('goblin', 12, 0.9)] },
     { groups: [g('goblin', 10, 0.8), g('wolf', 5, 1.2, 8)] },
     { groups: [g('skeleton', 6, 1.6), g('goblin', 12, 0.7, 5)] },
@@ -102,6 +126,41 @@ const meadow: LevelDef = {
     { groups: [g('skeleton', 12, 1.0), g('bat', 10, 0.9, 6), g('berserker', 3, 2.4, 12)] },
     { groups: [g('ogre', 1, 1), g('orc', 8, 1.6, 2), g('goblin', 20, 0.45, 6), g('wolf', 10, 0.7, 16), g('berserker', 3, 2.0, 20)] },
   ],
+  modes: {
+    laststand: {
+      lives: 1,
+      gold: 340,
+      lockedTowers: [],
+      maxUpgradeTier: CHALLENGE_TIER,
+      waves: [
+        { groups: [g('goblin', 14, 0.7), g('wolf', 6, 1.0, 6)], tip: ONE_LIFE },
+        { groups: [g('skeleton', 8, 1.2), g('goblin_archer', 4, 1.2, 4), g('wolf', 8, 0.8, 9)] },
+        { groups: [g('orc', 7, 1.6), g('bat', 8, 1.0, 5), g('goblin', 14, 0.5, 8)] },
+        { groups: [g('berserker', 4, 2.2), g('skeleton', 12, 0.9, 3), g('bat', 10, 0.8, 10)] },
+        { groups: [g('ogre', 1, 1), g('orc', 8, 1.4, 2), g('wolf', 12, 0.6, 8), g('goblin_archer', 5, 1.0, 12)] },
+        { groups: [g('ogre', 2, 8), g('berserker', 4, 2.0, 4), g('skeleton', 12, 0.8, 6), g('goblin', 20, 0.4, 12), g('bat', 10, 0.7, 16)] },
+      ],
+    },
+    siege: {
+      lives: 1,
+      gold: 440,
+      // archers and mages alone: nothing blocks the road, nothing blasts a pack
+      lockedTowers: ['barracks', 'artillery'],
+      maxUpgradeTier: CHALLENGE_TIER,
+      waves: [
+        {
+          tip: ONE_WAVE,
+          groups: [
+            g('goblin', 24, 0.7), g('wolf', 12, 0.8, 10), g('skeleton', 14, 1.1, 20), g('bat', 14, 0.8, 34), g('orc', 12, 1.4, 44),
+            g('goblin_archer', 6, 1.2, 52), g('goblin', 28, 0.4, 64), g('wolf', 16, 0.55, 74), g('berserker', 6, 1.8, 84), g('ogre', 1, 1, 90),
+            g('skeleton', 16, 0.8, 96), g('bat', 16, 0.6, 106), g('orc', 12, 1.1, 114), g('ogre', 2, 8, 124), g('berserker', 6, 1.6, 132),
+            g('wolf', 16, 0.5, 140),
+          ],
+        },
+      ],
+    },
+  },
+  endless: { gold: 400, lives: 10 },
 }
 
 const creek: LevelDef = {
@@ -141,7 +200,10 @@ const creek: LevelDef = {
   lives: 20,
   waves: [
     { groups: [g('goblin', 10, 1.0)] },
-    { groups: [g('goblin', 8, 0.9, 0, 1), g('wolf', 6, 1.1, 5)] },
+    {
+      groups: [g('goblin', 8, 0.9, 0, 1), g('wolf', 6, 1.1, 5)],
+      tip: 'Quái giờ đến từ cả con đường phía dưới. Nút đầu lâu ở đầu đường cho biết đợt tới ra từ đâu.',
+    },
     { groups: [g('skeleton', 8, 1.3), g('goblin', 6, 0.7, 3, 1), g('goblin_archer', 4, 1.4, 8, 1)] },
     { groups: [g('orc', 6, 1.8), g('bat', 8, 1.1, 4, 1)] },
     { groups: [g('shaman', 2, 5, 3), g('skeleton', 12, 1.0), g('wolf', 7, 0.7, 6, 1), g('ghost_wolf', 3, 1.6, 12, 1)] },
@@ -168,6 +230,41 @@ const creek: LevelDef = {
       ],
     },
   ],
+  modes: {
+    laststand: {
+      lives: 1,
+      gold: 560,
+      lockedTowers: [],
+      maxUpgradeTier: CHALLENGE_TIER,
+      waves: [
+        { groups: [g('goblin', 12, 0.7), g('wolf', 6, 0.9, 3, 1), g('skeleton', 5, 1.3, 8)], tip: ONE_LIFE },
+        { groups: [g('orc', 6, 1.6), g('bat', 8, 0.9, 4, 1), g('goblin_archer', 4, 1.1, 8, 1)] },
+        { groups: [g('dark_knight', 2, 5), g('shaman', 1, 1, 3), g('skeleton', 10, 0.9, 2, 1), g('ghost_wolf', 2, 1.5, 10, 1)] },
+        { groups: [g('berserker', 4, 2.0, 0, 1), g('orc', 8, 1.2, 2), g('necromancer', 1, 1, 9, 1), g('bat', 8, 0.7, 10)] },
+        { groups: [g('troll', 1, 1), g('dark_knight', 3, 3.2, 3, 1), g('wolf', 12, 0.5, 8), g('shaman', 2, 4, 6, 1), g('brood_bat', 1, 1, 14, 1)] },
+        { groups: [g('ogre_king', 1, 1, 6, 1), g('orc', 10, 0.9, 2), g('skeleton', 10, 0.8, 8, 1), g('dark_knight', 3, 3, 14), g('bat', 10, 0.55, 20, 1)] },
+      ],
+    },
+    siege: {
+      lives: 1,
+      gold: 680,
+      // no magic: armor has to be cracked with shells, and ghosts with whatever is left
+      lockedTowers: ['mage'],
+      maxUpgradeTier: CHALLENGE_TIER,
+      waves: [
+        {
+          tip: ONE_WAVE,
+          groups: [
+            g('goblin', 18, 0.8), g('wolf', 10, 0.9, 6, 1), g('skeleton', 12, 1.2, 18), g('orc', 8, 1.6, 30, 1), g('bat', 12, 0.9, 40),
+            g('goblin_archer', 6, 1.1, 48, 1), g('berserker', 5, 2.2, 58), g('dark_knight', 3, 4, 70, 1), g('goblin', 24, 0.45, 80),
+            g('shaman', 2, 5, 84), g('wolf', 14, 0.6, 96, 1), g('troll', 1, 1, 104), g('skeleton', 14, 0.9, 110, 1), g('bat', 12, 0.7, 120, 1),
+            g('brood_bat', 1, 1, 128, 1), g('orc', 12, 1.1, 132), g('dark_knight', 4, 3.2, 140, 1), g('ogre', 2, 9, 150), g('berserker', 5, 1.8, 156, 1),
+          ],
+        },
+      ],
+    },
+  },
+  endless: { gold: 450, lives: 10 },
 }
 
 const hellgate: LevelDef = {
@@ -207,7 +304,10 @@ const hellgate: LevelDef = {
   startGold: 480,
   lives: 20,
   waves: [
-    { groups: [g('goblin', 10, 0.9), g('goblin', 8, 1.0, 3, 1)] },
+    {
+      groups: [g('goblin', 10, 0.9), g('goblin', 8, 1.0, 3, 1)],
+      tip: 'Hai cổng tà thuật, hai đường quái. Chúng nhập làm một ở đoạn cuối: đó là chỗ đáng đặt tháp mạnh nhất.',
+    },
     { groups: [g('wolf', 8, 0.9), g('skeleton', 6, 1.4, 2, 1)] },
     { groups: [g('orc', 5, 1.8), g('bat', 8, 1.0, 3, 1), g('goblin_archer', 4, 1.2, 6)] },
     { groups: [g('skeleton', 10, 1.0), g('shaman', 2, 5, 3), g('wolf', 7, 0.7, 5, 1), g('ghost_wolf', 3, 1.4, 10, 1)] },
@@ -254,6 +354,57 @@ const hellgate: LevelDef = {
       ],
     },
   ],
+  modes: {
+    laststand: {
+      lives: 1,
+      gold: 720,
+      lockedTowers: [],
+      maxUpgradeTier: CHALLENGE_TIER,
+      waves: [
+        { groups: [g('goblin', 12, 0.6), g('wolf', 6, 0.9, 2, 1), g('skeleton', 6, 1.2, 6), g('goblin_archer', 4, 1.1, 8, 1)], tip: ONE_LIFE },
+        { groups: [g('orc', 6, 1.4), g('bat', 8, 0.9, 3, 1), g('shaman', 1, 1, 4), g('berserker', 3, 2.2, 6, 1)] },
+        { groups: [g('dark_knight', 3, 3.5), g('skeleton', 10, 0.8, 2, 1), g('hexer', 1, 1, 8, 1), g('ghost_wolf', 3, 1.3, 10)] },
+        {
+          groups: [
+            g('ogre', 1, 1), g('orc', 8, 1.1, 2, 1), g('necromancer', 1, 1, 8), g('troll', 1, 1, 10, 1), g('bat', 8, 0.7, 12, 1),
+            g('brood_bat', 1, 1, 18, 1),
+          ],
+        },
+        {
+          groups: [
+            g('dark_knight', 4, 2.8), g('berserker', 4, 1.8, 4, 1), g('warchief', 1, 1, 8, 1), g('shaman', 2, 3, 8), g('hexer', 1, 1, 10),
+            g('wolf', 12, 0.45, 12, 1),
+          ],
+        },
+        {
+          groups: [
+            g('demon_boss', 1, 1, 4), g('orc', 10, 1.1, 0, 1), g('skeleton', 12, 1.0, 10), g('dark_knight', 3, 3.5, 14, 1),
+            g('ogre', 1, 1, 20, 1), g('hexer', 1, 1, 24), g('bat', 12, 0.6, 28),
+          ],
+        },
+      ],
+    },
+    siege: {
+      lives: 1,
+      gold: 880,
+      // no archers: the sky belongs to the mages and to rockets
+      lockedTowers: ['archer'],
+      maxUpgradeTier: CHALLENGE_TIER,
+      waves: [
+        {
+          tip: ONE_WAVE,
+          groups: [
+            g('goblin', 16, 0.7), g('goblin', 12, 0.8, 2, 1), g('skeleton', 10, 1.2, 14), g('wolf', 10, 0.8, 20, 1), g('orc', 8, 1.5, 30, 1),
+            g('bat', 8, 1.0, 38), g('shaman', 2, 5, 44), g('dark_knight', 4, 3.5, 50), g('berserker', 4, 2.2, 56, 1), g('ghost_wolf', 4, 1.3, 66, 1),
+            g('goblin', 22, 0.4, 76), g('hexer', 1, 1, 84), g('ogre', 1, 1, 88, 1), g('troll', 2, 8, 96), g('bat', 10, 0.8, 104, 1),
+            g('necromancer', 1, 1, 112, 1), g('orc', 12, 1.0, 118), g('dark_knight', 5, 3, 128, 1), g('warchief', 1, 1, 136, 1),
+            g('brood_bat', 2, 4, 142), g('skeleton', 14, 0.8, 150, 1), g('ogre', 2, 7, 160), g('berserker', 5, 1.8, 168, 1), g('ogre_king', 1, 1, 178),
+          ],
+        },
+      ],
+    },
+  },
+  endless: { gold: 500, lives: 10 },
 }
 
 export const LEVELS: readonly LevelDef[] = [meadow, creek, hellgate]

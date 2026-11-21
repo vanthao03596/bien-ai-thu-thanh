@@ -1,15 +1,17 @@
 import Phaser from 'phaser'
-import { APP_EVENT, SCENE, fadeIn, isSwitching, retireTip, save, sfx, toggleMute } from '../app'
-import { ENEMIES, type EnemyType } from '../data/enemies'
+import { APP_EVENT, SCENE, fadeIn, isSwitching, markSeen, retireTip, save, sfx, toggleMute } from '../app'
+import { ENEMIES, enemiesFor, type EnemyType } from '../data/enemies'
 import { VIEW_H, VIEW_W } from '../data/levels'
 import { HERO, SPELLS } from '../data/towers'
 import { frameCamera, onPixelScale, pixelScale, touchFirst } from '../display'
+import { MODE_INFO } from '../data/modes'
+import { Notices } from '../notices'
 import { WAVE_CALL, type Session } from '../session'
 import type { SimEvent } from '../sim/types'
 import type { World } from '../sim/world'
 import { Tips } from '../tips'
 import { BuildMenu, TowerMenu, type HudFrame } from '../ui/menus'
-import { BossBar, InfoPanel, PausePanel, ResultPanel } from '../ui/panels'
+import { BossBar, InfoPanel, NoticeCard, PausePanel, ResultPanel } from '../ui/panels'
 import { Digits, label } from '../ui/text'
 import { BUTTONS, CLICKABLE, Cursor, HUD, HitBox, RoundButton, icon, overClickable, panel, setFrame, sprite, topHit } from '../ui/widgets'
 import { animKey } from '../view/battle-view'
@@ -72,7 +74,7 @@ class SpellButton {
     const cd = s.world.spellCd[this.mode]
     const ready = cd <= 0
     const usable = live && ready
-    this.button.setState(!usable, usable && s.mode === this.mode)
+    this.button.setState(!usable, usable && s.input === this.mode)
     this.fill.setVisible(!ready)
     this.count.obj.setVisible(!ready)
     if (!ready) {
@@ -80,7 +82,7 @@ class SpellButton {
       this.fill.setCrop(0, 32 - h, 32, h)
       this.count.set(String(Math.ceil(cd)))
     }
-    if (this.button.hover && live && (!ready || s.mode === 'normal')) f.info = this.info
+    if (this.button.hover && live && (!ready || s.input === 'normal')) f.info = this.info
   }
 }
 
@@ -105,6 +107,8 @@ export class HudScene extends Phaser.Scene {
   private goldIcon!: Phaser.GameObjects.Image
   private gold!: Digits
   private waves!: Digits
+  /** endless only: the points so far, in a small panel under the resources */
+  private score: Digits | null = null
   private resources!: HitBox
   private fast!: RoundButton
   private fastMark!: Digits
@@ -117,6 +121,8 @@ export class HudScene extends Phaser.Scene {
   private hint!: Phaser.GameObjects.Text
   private hintText = ''
   private tips!: Tips
+  private notices!: Notices
+  private noticeCard!: NoticeCard
   private touch = false
   private waveButtons: WaveButton[] = []
   private buildMenu!: BuildMenu
@@ -147,6 +153,7 @@ export class HudScene extends Phaser.Scene {
     this.hintText = ''
     this.touch = touchFirst()
     this.tips = new Tips(session, save.tips, retireTip, this.touch)
+    this.notices = new Notices(session.world, { seen: save.seen, retired: save.tips, onSeen: markSeen, onTip: retireTip })
 
     onPixelScale(this, () => frameCamera(this.cameras.main, pixelScale(this)))
     // hover state must follow widgets that appear under a resting pointer
@@ -162,10 +169,11 @@ export class HudScene extends Phaser.Scene {
     this.buildMenu = new BuildMenu(this, session, Z.menus)
     this.towerMenu = new TowerMenu(this, session, Z.menus)
     this.info = new InfoPanel(this, Z.info)
+    this.noticeCard = new NoticeCard(this, Z.info, () => this.notices.dismiss())
     this.bossBar = new BossBar(this, Z.info)
     this.redFlash = this.add.rectangle(0, 0, VIEW_W, VIEW_H, 0xb01828, 1).setOrigin(0, 0).setDepth(Z.flash).setAlpha(0)
     this.pausePanel = new PausePanel(this, session, Z.modal)
-    this.resultPanel = new ResultPanel(this, session, this.fx, Z.modal)
+    this.resultPanel = new ResultPanel(this, session, this.fx, Z.modal, () => battle.newRecord)
 
     this.bindKeys()
     this.bindBattle()
@@ -187,6 +195,13 @@ export class HudScene extends Phaser.Scene {
     this.waves = new Digits(this, 140, 11)
     bar.add([this.lives.obj, this.gold.obj, this.waves.obj])
     this.resources = new HitBox(this, 4, 4, 196, 24, {}, bar, false)
+    this.score = null
+    if (s.world.endless) {
+      panel(this, 'panel_stone', 4, 30, 96, 22, bar)
+      icon(this, 'star', 10, 33, bar)
+      this.score = new Digits(this, 28, 36)
+      bar.add(this.score.obj)
+    }
 
     this.fast = new RoundButton(this, VIEW_W - 72, 4, 'fast', () => {
       s.toggleSpeed()
@@ -206,14 +221,17 @@ export class HudScene extends Phaser.Scene {
     this.heroTimer = new Digits(this, 20, by + 11, '', 'center')
     bar.add(this.heroTimer.obj)
 
+    // the star tree may shorten a recharge, so the battle is asked for it
+    const fireCd = s.world.spellCooldown('fire')
+    const reinforceCd = s.world.spellCooldown('reinforce')
     this.spells.push(
-      new SpellButton(this, 42, by, 'fire', 'fire', SPELLS.fire.cooldown, [
+      new SpellButton(this, 42, by, 'fire', 'fire', fireCd, [
         `${SPELLS.fire.name} (1)`,
-        `Trút ${SPELLS.fire.count} quả cầu lửa xuống một vùng. Hồi ${SPELLS.fire.cooldown}s.`,
+        `Trút ${SPELLS.fire.count} quả cầu lửa xuống một vùng. Hồi ${Number(fireCd.toFixed(1))}s.`,
       ], s, Z.bar),
-      new SpellButton(this, 78, by, 'reinforce', 'sword', SPELLS.reinforce.cooldown, [
+      new SpellButton(this, 78, by, 'reinforce', 'sword', reinforceCd, [
         `${SPELLS.reinforce.name} (2)`,
-        `Gọi ${SPELLS.reinforce.count} dân binh chặn đường trong ${SPELLS.reinforce.life}s. Hồi ${SPELLS.reinforce.cooldown}s.`,
+        `Gọi ${SPELLS.reinforce.count} dân binh chặn đường trong ${Number(s.world.reinforceLife.toFixed(1))}s. Hồi ${reinforceCd}s.`,
       ], s, Z.bar),
     )
 
@@ -436,7 +454,7 @@ export class HudScene extends Phaser.Scene {
     // pointing at the field itself, not at a widget
     let hoverPlot = null
     let pickable = false
-    if (live && s.mode === 'normal' && mouse && topHit(this) === this.worldZone) {
+    if (live && s.input === 'normal' && mouse && topHit(this) === this.worldZone) {
       hoverPlot = s.plotAt(wp.x, wp.y)
       pickable = s.pickable(wp.x, wp.y)
     }
@@ -453,11 +471,14 @@ export class HudScene extends Phaser.Scene {
     this.updateBar(f, w, live, dt)
 
     this.info.show(f.info, f.infoBottom)
+    if (live) this.notices.update(dt)
+    const notice = live ? this.notices.current : null
+    this.noticeCard.update(notice, notice?.kind === 'enemy' ? enemiesFor(w.difficulty)[notice.type] : null, this.notices.shownFor, this.clock)
     this.bossBar.update(w)
     this.pausePanel.update(s.paused && w.result === null)
     this.resultPanel.update()
     this.battle.view.setOverlay({ hoverPlot, ranges: f.ranges, rally })
-    this.cursor.update(overClickable(this) || pickable || (live && s.mode !== 'normal'))
+    this.cursor.update(overClickable(this) || pickable || (live && s.input !== 'normal'))
   }
 
   /** Targeting modes: what the next click on the field will do. */
@@ -465,17 +486,17 @@ export class HudScene extends Phaser.Scene {
     const s = this.session
     const w = s.world
     const sel = s.selection
-    if (s.mode === 'rally' && sel.kind === 'tower') {
+    if (s.input === 'rally' && sel.kind === 'tower') {
       const t = sel.tower
       f.ranges.push({ x: t.x, y: t.y + 4, r: w.towerRange(t), ok: true })
       f.info = ['Đặt điểm tập kết', this.touch ? 'Chạm vào một điểm trong vùng sáng.' : 'Bấm vào một điểm trong vùng sáng. Chuột phải để hủy.']
       return mouse ? { x: wp.x, y: wp.y, ok: w.canRally(t, wp.x, wp.y) } : null
     }
     const back = this.touch ? 'Chạm lại nút phép để hủy.' : 'Chuột phải để hủy.'
-    if (s.mode === 'fire') {
+    if (s.input === 'fire') {
       f.info = [SPELLS.fire.name, `Chọn nơi trút lửa. Gây sát thương cả quái bay. ${back}`]
       if (mouse) f.ranges.push({ x: wp.x, y: wp.y + 4, r: SPELLS.fire.radius + SPELLS.fire.scatter, ok: false })
-    } else if (s.mode === 'reinforce') {
+    } else if (s.input === 'reinforce') {
       f.info = [SPELLS.reinforce.name, `Chọn một điểm trên đường để gọi hai dân binh. ${back}`]
       if (mouse) f.ranges.push({ x: wp.x, y: wp.y + 4, r: 22, ok: true })
     }
@@ -531,7 +552,7 @@ export class HudScene extends Phaser.Scene {
         const bonus = w.earlyBonus()
         const how = armed ? 'Chạm lần nữa để gọi quái ra trận.' : 'Bấm để gọi quái ra trận.'
         f.info = [
-          `Đợt ${w.waveIndex + 2}/${w.waveCount}: ${this.waveSummary(w)}`,
+          `Đợt ${w.waveIndex + 2}${w.endless ? '' : `/${w.waveCount}`}: ${this.waveSummary(w)}`,
           bonus > 0 ? `Gọi sớm được thưởng ${bonus} vàng.${armed ? ` ${how}` : ''}` : how,
           ...this.waveTraits(w),
         ]
@@ -546,9 +567,13 @@ export class HudScene extends Phaser.Scene {
     this.heart.setY(8 + (hurt ? 1 : 0)).setAlpha(hurt ? 0.5 : 1)
     this.lives.set(String(w.lives))
     this.gold.set(String(w.gold))
-    this.waves.set(`${Math.max(0, w.waveIndex + 1)}/${w.waveCount}`)
+    this.waves.set(w.endless ? String(Math.max(0, w.waveIndex + 1)) : `${Math.max(0, w.waveIndex + 1)}/${w.waveCount}`)
+    this.score?.set(String(w.score))
     if (this.resources.hover && live) {
-      f.info = ['Mạng  -  Vàng  -  Đợt quái', 'Để lọt quái sẽ mất mạng. Hết mạng là thất thủ.']
+      f.info = [
+        `${MODE_INFO[s.mode].name}:  Mạng  -  Vàng  -  Đợt quái`,
+        w.endless ? 'Quái mạnh dần theo từng đợt. Gọi đợt sớm được thưởng vàng gấp nhiều lần.' : 'Để lọt quái sẽ mất mạng. Hết mạng là thất thủ.',
+      ]
     }
 
     this.fast.setInert(!live).setState(!live, live && s.speed === 2)
@@ -577,7 +602,7 @@ export class HudScene extends Phaser.Scene {
 
     // one line of advice for new players, unless something else needs the bottom of the screen
     const tip = this.tips.update(dt)
-    const showHint = tip !== null && s.mode === 'normal' && !this.bossBar.visible && !(f.info && f.infoBottom)
+    const showHint = tip !== null && s.input === 'normal' && !this.bossBar.visible && !(f.info && f.infoBottom)
     this.hint.setVisible(showHint)
     if (showHint && tip !== null) {
       if (tip !== this.hintText) {

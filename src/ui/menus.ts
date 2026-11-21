@@ -11,12 +11,12 @@ import {
   TOWERS,
   TOWER_TYPES,
   skillText,
-  towerStats,
   type TowerStats,
   type TowerType,
 } from '../data/towers'
 import type { Session } from '../session'
 import type { Plot, Tower } from '../sim/types'
+import type { World } from '../sim/world'
 import type { RangeMarker } from '../view/battle-view'
 import { Digits } from './text'
 import { HUD, HitBox, RoundButton, icon, setFrame, sprite, type RoundButtonOptions } from './widgets'
@@ -137,7 +137,7 @@ export class BuildMenu {
       o.check.setVisible(allowed && armed)
       if (hot && allowed) {
         f.info = [`${def.name}  -  ${cost} vàng`, def.blurb]
-        f.ranges.push({ x: plot.x, y: plot.y + 4, r: def.range[0], ok: affordable })
+        f.ranges.push({ x: plot.x, y: plot.y + 4, r: w.stats(o.type, 0, null).range, ok: affordable })
       }
     }
   }
@@ -148,11 +148,14 @@ function statLine(type: TowerType, stats: TowerStats, extra = ''): string {
     return `Lính: ${stats.soldierHp} máu, sát thương ${stats.dmg[0]}-${stats.dmg[1]}, giáp ${Math.round(stats.soldierArmor * 100)}%`
   }
   const splash = stats.splash > 0 ? `, nổ lan ${stats.splash}` : ''
-  return `Sát thương ${DAMAGE_KIND_NAME[TOWERS[type].dmgKind]} ${stats.dmg[0]}-${stats.dmg[1]}, nhịp ${stats.cooldown}s, tầm ${stats.range}${splash}${extra}`
+  // a star upgrade can leave the cooldown with a long tail of decimals
+  const pace = Number(stats.cooldown.toFixed(2))
+  return `Sát thương ${DAMAGE_KIND_NAME[TOWERS[type].dmgKind]} ${stats.dmg[0]}-${stats.dmg[1]}, nhịp ${pace}s, tầm ${stats.range}${splash}${extra}`
 }
 
-function towerInfo(t: Tower, level: number): string {
-  return statLine(t.type, towerStats(t.type, level, null), t.type === 'mage' && level >= MAX_LEVEL ? ', làm chậm' : '')
+/** The stat line of a plain tower at a level, with the numbers of this battle. */
+function towerInfo(w: World, t: Tower, level: number): string {
+  return statLine(t.type, w.stats(t.type, level, null), t.type === 'mage' && level >= MAX_LEVEL ? ', làm chậm' : '')
 }
 
 /** A round button with a caption under it and a tick for touch confirmation, centred on its container. */
@@ -278,11 +281,11 @@ export class TowerMenu {
     const state =
       t.buildT > 0 ? 'Đang xây...'
       : t.silenceT > 0 ? 'Bị yểm bùa: tạm thời không bắn được.'
-      : spec ? statLine(t.type, spec)
-      : towerInfo(t, t.level)
+      : spec ? statLine(t.type, w.statsOf(t))
+      : towerInfo(w, t, t.level)
     f.info = [spec ? spec.name : `${def.name} cấp ${t.level + 1}`, state]
     f.infoBottom = anchor.y < 200
-    if (s.mode !== 'normal') {
+    if (s.input !== 'normal') {
       this.hide()
       return
     }
@@ -315,8 +318,8 @@ export class TowerMenu {
       this.upgrade.caption.set(String(cost)).obj.setAlpha(affordable ? 1 : 0.6)
       this.upgrade.check.setVisible(armed)
       if (this.upgrade.button.hover || armed) {
-        f.info = [`Nâng lên cấp ${t.level + 2}  -  ${cost} vàng`, towerInfo(t, t.level + 1)]
-        f.ranges.push({ x: t.x, y: t.y + 4, r: def.range[t.level + 1], ok: affordable })
+        f.info = [`Nâng lên cấp ${t.level + 2}  -  ${cost} vàng`, towerInfo(w, t, t.level + 1)]
+        f.ranges.push({ x: t.x, y: t.y + 4, r: w.stats(t.type, t.level + 1, null).range, ok: affordable })
       }
     }
 
@@ -369,8 +372,9 @@ export class TowerMenu {
           f.info = [option.name, 'Nhánh này chưa mở ở màn chơi hiện tại.']
           return
         }
-        f.info = [`${option.name}  -  ${option.cost} vàng`, option.blurb, statLine(t.type, option)]
-        f.ranges.push({ x: t.x, y: t.y + 4, r: option.range, ok: affordable })
+        const stats = w.stats(t.type, t.level, option.id)
+        f.info = [`${option.name}  -  ${option.cost} vàng`, option.blurb, statLine(t.type, stats)]
+        f.ranges.push({ x: t.x, y: t.y + 4, r: stats.range, ok: affordable })
         return
       }
       const id = spec.skills[slot]

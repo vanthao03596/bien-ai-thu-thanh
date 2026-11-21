@@ -30,7 +30,9 @@ export class Bot {
 
   constructor(world: World, plan: BotPlan = {}) {
     this.world = world
-    this.buildOrder = plan.order ?? BUILD_ORDER
+    // a challenge may lock tower types: the bot plays its order without them
+    const order = (plan.order ?? BUILD_ORDER).filter((type) => world.level.towers.includes(type))
+    this.buildOrder = order.length > 0 ? order : world.level.towers
     this.callEarly = plan.callEarly ?? false
     // best plots first: the ones that see the most road
     const score = (plot: Plot): number => {

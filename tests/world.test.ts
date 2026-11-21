@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ENEMIES } from '../src/data/enemies'
 import { LEVELS, type LevelDef } from '../src/data/levels'
 import { HERO, SELL_REFUND, SPELLS, TOWERS } from '../src/data/towers'
+import { hasMod } from '../src/sim/mods'
 import { World, inRange, starsFor } from '../src/sim/world'
 
 const DT = 1 / 60
@@ -25,6 +26,8 @@ function testLevel(overrides: Partial<LevelDef> = {}): LevelDef {
     startGold: 1000,
     lives: 20,
     waves: [{ groups: [{ type: 'goblin', count: 3, gap: 1, at: 0 }] }, { groups: [{ type: 'goblin', count: 2, gap: 1, at: 0 }] }],
+    modes: LEVELS[0].modes,
+    endless: LEVELS[0].endless,
     ...overrides,
   }
 }
@@ -189,7 +192,7 @@ describe('towers', () => {
     w.upgrade(t)
     const ogre = w.spawnEnemy(ENEMIES.ogre, 0, 300)
     run(w, 3)
-    expect(ogre.slowT).toBeGreaterThan(0)
+    expect(hasMod(ogre.mods, 'slow')).toBe(true)
   })
 })
 

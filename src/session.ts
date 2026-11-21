@@ -1,12 +1,16 @@
 import type { Sfx } from './audio'
 import { DEFAULT_DIFFICULTY, type Difficulty } from './data/difficulty'
 import { LEVELS } from './data/levels'
+import { DEFAULT_MODE, type ModeId } from './data/modes'
+import type { UpgradeTiers } from './data/upgrades'
+import { BattleStats } from './sim/stats'
 import type { Plot, SimEvent, Tower } from './sim/types'
 import { World } from './sim/world'
 
 const STEP = 1 / 60
 
-export type Mode = 'normal' | 'rally' | 'fire' | 'reinforce'
+/** What the next click on the field does. */
+export type InputMode = 'normal' | 'rally' | 'fire' | 'reinforce'
 export type Selection =
   | { kind: 'none' }
   | { kind: 'plot'; plot: Plot }
@@ -18,16 +22,41 @@ const NONE: Selection = { kind: 'none' }
 /** id of the armed option while a touch player is looking at the next wave before calling it */
 export const WAVE_CALL = 'wave-call'
 
+/** What a played battle is set up with; everything left out is the plain campaign battle. */
+export interface SessionSetup {
+  difficulty?: Difficulty
+  mode?: ModeId
+  /** steps of the star tree the player owns */
+  upgrades?: UpgradeTiers
+}
+
+/** How a battle ended, for whoever keeps the records. */
+export interface Outcome {
+  levelId: string
+  mode: ModeId
+  difficulty: Difficulty
+  won: boolean
+  /** rating of a win: one to three in the campaign, one in a challenge; 0 for a defeat */
+  stars: number
+  /** the wave the battle reached, counted from 1 */
+  wave: number
+  /** points of an endless battle */
+  score: number
+}
+
 /**
  * One played level: the simulation plus everything the player has selected or
  * armed. It knows nothing about rendering, so scenes only read it and call it.
  */
 export class Session {
   readonly world: World
+  readonly mode: ModeId
+  /** what every part of the defence achieved, for the summary at the end */
+  readonly stats: BattleStats
   paused = false
   speed = 1
   selection: Selection = NONE
-  mode: Mode = 'normal'
+  input: InputMode = 'normal'
   /** option waiting for a second tap on touch screens */
   armed: string | null = null
   /** seconds since the battle was decided */
@@ -37,14 +66,17 @@ export class Session {
   /** how often the player has moved a rally point */
   rallyOrders = 0
   private acc = 0
+  private reported = false
 
   constructor(
     readonly levelIndex: number,
     private readonly sfx: Sfx,
-    private readonly onWin: (levelId: string, stars: number, difficulty: Difficulty) => void,
-    difficulty: Difficulty = DEFAULT_DIFFICULTY,
+    private readonly onOutcome: (outcome: Outcome) => void,
+    setup: SessionSetup = {},
   ) {
-    this.world = new World(LEVELS[levelIndex], difficulty)
+    this.mode = setup.mode ?? DEFAULT_MODE
+    this.world = new World(LEVELS[levelIndex], setup.difficulty ?? DEFAULT_DIFFICULTY, { mode: this.mode, upgrades: setup.upgrades })
+    this.stats = new BattleStats(this.world.bus)
   }
 
   /** The battle is running and accepts orders. */
@@ -79,11 +111,35 @@ export class Session {
   }
 
   private onResult(): void {
-    const w = this.world
     this.selection = NONE
-    this.mode = 'normal'
+    this.input = 'normal'
     this.armed = null
-    if (w.result === 'win') this.onWin(w.level.id, w.stars, w.difficulty)
+    this.report()
+  }
+
+  /** Tells the record keeper how the battle went, once. */
+  private report(): void {
+    if (this.reported) return
+    this.reported = true
+    const w = this.world
+    const won = w.result === 'win'
+    this.onOutcome({
+      levelId: w.level.id,
+      mode: this.mode,
+      difficulty: w.difficulty,
+      won,
+      stars: won ? w.stars : 0,
+      wave: w.waveIndex + 1,
+      score: w.score,
+    })
+  }
+
+  /**
+   * The player walks away from a battle that is still running. An endless
+   * battle has no other end than a defeat, so what was reached so far counts.
+   */
+  leave(): void {
+    if (this.world.endless && this.world.waveIndex >= 0) this.report()
   }
 
   // ------------------------------------------------------------ commands
@@ -91,8 +147,8 @@ export class Session {
   /** Backs out of the current targeting mode or selection. Returns false when there was nothing to cancel. */
   cancel(): boolean {
     this.armed = null
-    if (this.mode !== 'normal') {
-      this.mode = 'normal'
+    if (this.input !== 'normal') {
+      this.input = 'normal'
       return true
     }
     if (this.selection.kind !== 'none') {
@@ -115,28 +171,28 @@ export class Session {
   }
 
   toggleSpell(mode: 'fire' | 'reinforce'): void {
-    if (this.mode === mode) {
-      this.mode = 'normal'
+    if (this.input === mode) {
+      this.input = 'normal'
       return
     }
     if (this.world.spellCd[mode] > 0) {
       this.sfx.play('deny')
       return
     }
-    this.mode = mode
+    this.input = mode
     this.selection = NONE
     this.armed = null
     this.sfx.play('select')
   }
 
   startRally(): void {
-    this.mode = 'rally'
+    this.input = 'rally'
     this.armed = null
     this.sfx.play('select')
   }
 
   selectHero(): void {
-    this.mode = 'normal'
+    this.input = 'normal'
     this.armed = null
     this.selection = this.selection.kind === 'hero' ? NONE : { kind: 'hero' }
     this.sfx.play('select')
@@ -194,9 +250,9 @@ export class Session {
     const w = this.world
     if (!this.live) return
     const sel = this.selection
-    if (this.mode === 'rally') {
+    if (this.input === 'rally') {
       if (sel.kind === 'tower' && w.setRally(sel.tower, x, y)) {
-        this.mode = 'normal'
+        this.input = 'normal'
         this.rallyOrders += 1
         this.sfx.play('select')
       } else {
@@ -204,12 +260,12 @@ export class Session {
       }
       return
     }
-    if (this.mode === 'fire') {
-      if (w.castFireRain(x, y)) this.mode = 'normal'
+    if (this.input === 'fire') {
+      if (w.castFireRain(x, y)) this.input = 'normal'
       return
     }
-    if (this.mode === 'reinforce') {
-      if (w.castReinforcements(x, y)) this.mode = 'normal'
+    if (this.input === 'reinforce') {
+      if (w.castReinforcements(x, y)) this.input = 'normal'
       return
     }
     this.armed = null
